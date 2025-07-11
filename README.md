@@ -37,7 +37,9 @@ A 3D version of the classic Space Invaders game built with Three.js.
 
 ## Live Demo
 
-Play the game at: [Your Netlify URL will appear here after deployment]
+Play the game at: [Space Invaders 3D Demo](https://your-demo-url-here.com)
+
+> **Note**: Replace the demo URL above with your actual deployed link once you push to a hosting service like GitHub Pages, Netlify, or Vercel.
 
 ## Development
 
