@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Space Invaders 3D</title>
+    <style>
+        body { margin: 0; } /* Remove default margins */
+        canvas { display: block; } /* Full-screen canvas */
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> <!-- Three.js library -->
+    <script>
+        // Global variables
+let scene, camera, renderer;
+let keys = {}; // Track pressed keys
+let projectiles = []; // Array for lasers
+let ship; // Player ship
+let invaders = []; // Array of invaders
+let score = 0;
+let gameOver = false;
+let wave = 1;
+
+// Audio context for sound effects
+let audioContext;
+let shootSound;
+const scoreElement = document.createElement('div'); // HTML overlay for score
+scoreElement.style.position = 'absolute';
+scoreElement.style.top = '10px';
+scoreElement.style.left = '10px';
+scoreElement.style.color = 'white';
+scoreElement.style.fontSize = '24px';
+document.body.appendChild(scoreElement);
+
+const gameOverElement = document.createElement('div'); // Game Over overlay
+gameOverElement.style.position = 'absolute';
+gameOverElement.style.top = '50%';
+gameOverElement.style.left = '50%';
+gameOverElement.style.transform = 'translate(-50%, -50%)';
+gameOverElement.style.color = 'red';
+gameOverElement.style.fontSize = '48px';
+gameOverElement.style.fontWeight = 'bold';
+gameOverElement.style.display = 'none';
+document.body.appendChild(gameOverElement);
+
+// Initialize audio
+function initAudio() {
+    try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create shooting sound (laser zap)
+        function createShootSound() {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+        
+        shootSound = createShootSound;
+    } catch (e) {
+        console.log('Audio not supported:', e);
+    }
+}
+
+// Initialize the scene
+function init() {
+    // Initialize audio
+    initAudio();
+    
+    // Create scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000); // Black space background
+
+    // Create perspective camera (field of view, aspect ratio, near/far clipping)
+    const aspect = window.innerWidth / window.innerHeight;
+    camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+    camera.position.z = 50; // Move camera back to see the scene
+
+    // Create renderer and attach to canvas
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Enhanced lighting for better 3D effect
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.4); // Soft ambient light
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(0, 0, 50);
+    scene.add(directionalLight);
+    
+    const pointLight = new THREE.PointLight(0x00ff00, 1, 100); // Green point light
+    pointLight.position.set(0, -20, 20);
+    scene.add(pointLight);
+
+    // Add stars background
+    for (let i = 0; i < 100; i++) {
+        const star = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        star.position.set(Math.random() * 100 - 50, Math.random() * 100 - 50, -10);
+        scene.add(star);
+    }
+
+    // Player ship - create a more realistic spaceship
+    const shipGroup = new THREE.Group();
+    
+    // Main body (elongated cone)
+    const bodyGeometry = new THREE.ConeGeometry(3, 12, 32);
+    const bodyMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x00ff00,
+        shininess: 100,
+        specular: 0x444444
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.rotation.x = Math.PI; // Point upward
+    shipGroup.add(body);
+    
+    // Wings
+    const wingGeometry = new THREE.BoxGeometry(8, 1, 4);
+    const wingMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x008800,
+        shininess: 80,
+        specular: 0x333333
+    });
+    const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    leftWing.position.set(-4, -2, 0);
+    shipGroup.add(leftWing);
+    
+    const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    rightWing.position.set(4, -2, 0);
+    shipGroup.add(rightWing);
+    
+    // Cockpit
+    const cockpitGeometry = new THREE.SphereGeometry(2, 16, 16);
+    const cockpitMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x00ffff,
+        shininess: 200,
+        specular: 0x666666,
+        transparent: true,
+        opacity: 0.7
+    });
+    const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+    cockpit.position.set(0, 2, 0);
+    shipGroup.add(cockpit);
+    
+    // Engine exhaust
+    const engineGeometry = new THREE.CylinderGeometry(1, 1.5, 3, 16);
+    const engineMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x444444,
+        shininess: 50,
+        specular: 0x111111
+    });
+    const engine = new THREE.Mesh(engineGeometry, engineMaterial);
+    engine.position.set(0, -6, 0);
+    shipGroup.add(engine);
+    
+    ship = shipGroup;
+    ship.position.y = -30; // Bottom of screen
+    scene.add(ship);
+
+    // Create 5x3 grid of invaders
+    for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 5; col++) {
+            // Create Pac-Man like shape using sphere geometry with custom material
+            const invaderGeometry = new THREE.SphereGeometry(3, 16, 16);
+            const invaderMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffff00, // Yellow like Pac-Man
+                shininess: 50,
+                specular: 0x222222,
+                transparent: true,
+                opacity: 0.9
+            });
+            const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+            invader.position.set(col * 10 - 20, 40 - row * 10, 0); // Grid positions
+            scene.add(invader);
+            invaders.push(invader);
+        }
+    }
+
+    // Keyboard controls
+    document.addEventListener('keydown', (event) => { keys[event.key] = true; });
+    document.addEventListener('keyup', (event) => { keys[event.key] = false; });
+
+    // Make it responsive
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Call the animation loop
+    animate();
+}
+
+// Animation loop (runs every frame)
+function animate() {
+    requestAnimationFrame(animate); // Loop this function
+    
+    // Update player position (only if game is not over)
+    if (!gameOver) {
+        if (keys['ArrowLeft'] && ship.position.x > -40) ship.position.x -= 0.5;
+        if (keys['ArrowRight'] && ship.position.x < 40) ship.position.x += 0.5;
+
+                // Shoot on spacebar (limit firing rate)
+        if (keys[' ']) {
+            // Create laser (cylinder)
+            const laserGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5, 32);
+            const laserMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xff0000,
+                shininess: 200,
+                specular: 0xffffff,
+                emissive: 0x330000
+            }); // Red with glow effect
+            const laser = new THREE.Mesh(laserGeometry, laserMaterial);
+            laser.position.set(ship.position.x, ship.position.y + 5, 0); // Above ship
+            laser.rotation.x = Math.PI / 2; // Rotate to vertical
+            scene.add(laser);
+            projectiles.push(laser);
+            
+            // Play shooting sound
+            if (shootSound) {
+                shootSound();
+            }
+            
+            keys[' '] = false; // Prevent rapid fire (add timer for better control later)
+        }
+    }
+
+    // Move projectiles (player shots up, enemy shots down)
+    projectiles.forEach((proj, index) => {
+        const dir = proj.direction || 1; // Player: 1 up, enemy: -1 down
+        proj.mesh ? proj.mesh.position.y += 1 * dir : proj.position.y += 1 * dir;
+        
+        // Remove off-screen projectiles
+        if (proj.mesh) { // Enemy projectile
+            if (proj.mesh.position.y < -50) {
+                scene.remove(proj.mesh);
+                projectiles.splice(index, 1);
+            }
+        } else { // Player projectile
+            if (proj.position.y > 50) {
+                scene.remove(proj);
+                projectiles.splice(index, 1);
+            }
+        }
+    });
+
+        // Check collisions
+    projectiles.forEach((proj, pIndex) => {
+        if (!proj.direction) { // Player projectile hitting invaders
+            invaders.forEach((inv, iIndex) => {
+                // Simple bounding box collision (check distance)
+                if (Math.abs(proj.position.x - inv.position.x) < 3 &&
+                    Math.abs(proj.position.y - inv.position.y) < 3) {
+                    scene.remove(proj);
+                    scene.remove(inv);
+                    projectiles.splice(pIndex, 1);
+                    invaders.splice(iIndex, 1);
+                    score += 10;
+                    scoreElement.innerText = `Score: ${score}`;
+                    
+                    // Check if all invaders are gone
+                    if (invaders.length === 0) {
+                        wave++;
+                        // Respawn faster invaders
+                        for (let row = 0; row < 3; row++) {
+                            for (let col = 0; col < 5; col++) {
+                                const invader = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+                                invader.position.set(col * 10 - 20, 40 - row * 10, 0);
+                                scene.add(invader);
+                                invaders.push(invader);
+                            }
+                        }
+                    }
+                }
+            });
+        } else { // Enemy projectile hitting player
+            if (proj.mesh && !gameOver) {
+                const shipPos = ship.position;
+                if (Math.abs(proj.mesh.position.x - shipPos.x) < 5 &&
+                    Math.abs(proj.mesh.position.y - shipPos.y) < 5) {
+                    // Player hit!
+                    scene.remove(proj.mesh);
+                    projectiles.splice(pIndex, 1);
+                    gameOver = true;
+                    gameOverElement.textContent = `Game Over! Score: ${score}`;
+                    gameOverElement.style.display = 'block';
+                }
+            }
+        }
+    });
+
+    // Game over if invaders reach bottom
+    invaders.forEach(inv => {
+        if (inv.position.y < -30 && !gameOver) {
+            gameOver = true;
+            gameOverElement.textContent = `Game Over! Score: ${score}`;
+            gameOverElement.style.display = 'block';
+        }
+    });
+
+    // Move invaders down slowly with enhanced 3D effects
+    invaders.forEach(inv => {
+        inv.position.y -= 0.05 * wave; // Adjust speed based on wave
+        inv.rotation.y += 0.01; // Rotate for 3D effect
+        inv.rotation.x += 0.005; // Additional rotation for more dynamic movement
+        inv.scale.setScalar(1 + Math.sin(Date.now() * 0.003) * 0.1); // Pulsing effect
+    });
+
+    // Enemy shooting
+    if (Math.random() < 0.01) { // 1% chance per frame
+        const randomInv = invaders[Math.floor(Math.random() * invaders.length)];
+        if (randomInv) {
+            const enemyLaser = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 5, 32), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+            enemyLaser.position.set(randomInv.position.x, randomInv.position.y - 5, 0);
+            enemyLaser.rotation.x = Math.PI / 2;
+            scene.add(enemyLaser);
+            projectiles.push({ mesh: enemyLaser, direction: -1 }); // Tag direction down
+        }
+    }
+    
+    renderer.render(scene, camera); // Draw the scene
+}
+
+// Start the game
+init();
+    </script>
+</body>
+</html> 
