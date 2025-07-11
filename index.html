@@ -84,6 +84,31 @@ logoElement.innerHTML = `
 `;
 document.body.appendChild(logoElement);
 
+// Controls Information Panel
+const controlsElement = document.createElement('div');
+controlsElement.style.position = 'absolute';
+controlsElement.style.bottom = '10px';
+controlsElement.style.left = '10px';
+controlsElement.style.color = '#00ff00';
+controlsElement.style.fontSize = '14px';
+controlsElement.style.fontFamily = 'Arial, sans-serif';
+controlsElement.style.fontWeight = 'bold';
+controlsElement.style.textShadow = '1px 1px 2px rgba(0,0,0,0.8)';
+controlsElement.style.background = 'rgba(0,0,0,0.7)';
+controlsElement.style.padding = '10px';
+controlsElement.style.borderRadius = '8px';
+controlsElement.style.border = '1px solid #00ff00';
+controlsElement.innerHTML = `
+    <div style="margin-bottom: 5px; color: #ffffff; font-size: 16px;">🎮 CONTROLS</div>
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+        <div><span style="color: #00ff00;">← →</span> Move Ship</div>
+        <div><span style="color: #00ff00;">SPACE</span> Shoot Laser</div>
+        <div><span style="color: #ffff00;">🎯</span> Destroy Invaders</div>
+        <div><span style="color: #ff0000;">⚠️</span> Avoid Enemy Lasers</div>
+    </div>
+`;
+document.body.appendChild(controlsElement);
+
 // Reset game function
 function resetGame() {
     // Clear all invaders
