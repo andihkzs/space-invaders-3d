@@ -19,6 +19,7 @@ let invaders = []; // Array of invaders
 let score = 0;
 let gameOver = false;
 let wave = 1;
+let highScore = localStorage.getItem('spaceInvadersHighScore') || 0;
 
 // Audio context for sound effects
 let audioContext;
@@ -39,8 +40,58 @@ gameOverElement.style.transform = 'translate(-50%, -50%)';
 gameOverElement.style.color = 'red';
 gameOverElement.style.fontSize = '48px';
 gameOverElement.style.fontWeight = 'bold';
+gameOverElement.style.textAlign = 'center';
 gameOverElement.style.display = 'none';
 document.body.appendChild(gameOverElement);
+
+const highScoreElement = document.createElement('div'); // High Score display
+highScoreElement.style.position = 'absolute';
+highScoreElement.style.top = '40px';
+highScoreElement.style.right = '10px';
+highScoreElement.style.color = 'yellow';
+highScoreElement.style.fontSize = '20px';
+highScoreElement.style.fontWeight = 'bold';
+highScoreElement.textContent = `High Score: ${highScore}`;
+document.body.appendChild(highScoreElement);
+
+// Reset game function
+function resetGame() {
+    // Clear all invaders
+    invaders.forEach(inv => scene.remove(inv));
+    invaders = [];
+    
+    // Clear all projectiles
+    projectiles.forEach(proj => {
+        if (proj.mesh) {
+            scene.remove(proj.mesh);
+        } else {
+            scene.remove(proj);
+        }
+    });
+    projectiles = [];
+    
+    // Reset game state
+    score = 0;
+    gameOver = false;
+    wave = 1;
+    
+    // Update displays
+    scoreElement.innerText = `Score: ${score}`;
+    gameOverElement.style.display = 'none';
+    
+    // Create new wave of invaders
+    for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 5; col++) {
+            const invader = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+            invader.position.set(col * 10 - 20, 40 - row * 10, 0);
+            scene.add(invader);
+            invaders.push(invader);
+        }
+    }
+    
+    // Reset ship position
+    ship.position.set(0, -30, 0);
+}
 
 // Initialize audio
 function initAudio() {
@@ -291,7 +342,44 @@ function animate() {
                     scene.remove(proj.mesh);
                     projectiles.splice(pIndex, 1);
                     gameOver = true;
-                    gameOverElement.textContent = `Game Over! Score: ${score}`;
+                    
+                    // Check for new high score
+                    if (score > highScore) {
+                        highScore = score;
+                        localStorage.setItem('spaceInvadersHighScore', highScore);
+                        highScoreElement.textContent = `High Score: ${highScore}`;
+                        gameOverElement.innerHTML = `
+                            <div>Game Over!</div>
+                            <div style="font-size: 24px; margin: 10px 0;">Score: ${score}</div>
+                            <div style="font-size: 20px; color: gold; margin: 10px 0;">NEW HIGH SCORE! 🎉</div>
+                            <button onclick="resetGame()" style="
+                                background: #4CAF50; 
+                                color: white; 
+                                border: none; 
+                                padding: 15px 30px; 
+                                font-size: 18px; 
+                                border-radius: 5px; 
+                                cursor: pointer;
+                                margin-top: 20px;
+                            ">Start New Game</button>
+                        `;
+                    } else {
+                        gameOverElement.innerHTML = `
+                            <div>Game Over!</div>
+                            <div style="font-size: 24px; margin: 10px 0;">Score: ${score}</div>
+                            <div style="font-size: 16px; color: #ccc; margin: 10px 0;">High Score: ${highScore}</div>
+                            <button onclick="resetGame()" style="
+                                background: #4CAF50; 
+                                color: white; 
+                                border: none; 
+                                padding: 15px 30px; 
+                                font-size: 18px; 
+                                border-radius: 5px; 
+                                cursor: pointer;
+                                margin-top: 20px;
+                            ">Start New Game</button>
+                        `;
+                    }
                     gameOverElement.style.display = 'block';
                 }
             }
@@ -302,7 +390,44 @@ function animate() {
     invaders.forEach(inv => {
         if (inv.position.y < -30 && !gameOver) {
             gameOver = true;
-            gameOverElement.textContent = `Game Over! Score: ${score}`;
+            
+            // Check for new high score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('spaceInvadersHighScore', highScore);
+                highScoreElement.textContent = `High Score: ${highScore}`;
+                gameOverElement.innerHTML = `
+                    <div>Game Over!</div>
+                    <div style="font-size: 24px; margin: 10px 0;">Score: ${score}</div>
+                    <div style="font-size: 20px; color: gold; margin: 10px 0;">NEW HIGH SCORE! 🎉</div>
+                    <button onclick="resetGame()" style="
+                        background: #4CAF50; 
+                        color: white; 
+                        border: none; 
+                        padding: 15px 30px; 
+                        font-size: 18px; 
+                        border-radius: 5px; 
+                        cursor: pointer;
+                        margin-top: 20px;
+                    ">Start New Game</button>
+                `;
+            } else {
+                gameOverElement.innerHTML = `
+                    <div>Game Over!</div>
+                    <div style="font-size: 24px; margin: 10px 0;">Score: ${score}</div>
+                    <div style="font-size: 16px; color: #ccc; margin: 10px 0;">High Score: ${highScore}</div>
+                    <button onclick="resetGame()" style="
+                        background: #4CAF50; 
+                        color: white; 
+                        border: none; 
+                        padding: 15px 30px; 
+                        font-size: 18px; 
+                        border-radius: 5px; 
+                        cursor: pointer;
+                        margin-top: 20px;
+                    ">Start New Game</button>
+                `;
+            }
             gameOverElement.style.display = 'block';
         }
     });
