@@ -340,6 +340,7 @@ document.body.appendChild(controlsElement);
 
 // Reset game function
 function resetGame() {
+    console.log('resetGame() called!');
     // Clear all invaders
     invaders.forEach(inv => scene.remove(inv));
     invaders = [];
@@ -359,14 +360,20 @@ function resetGame() {
     gameOver = false;
     wave = 1;
     
+    // Stop any ongoing auto-fire
+    stopAutoFire();
+    isTouching = false;
+    
     // Update displays
     scoreElement.innerText = `Score: ${score}`;
     gameOverElement.style.display = 'none';
+    console.log('Game over element hidden');
     
     // Show touch area again when game restarts
     const touchArea = document.querySelector('.touch-area');
     if (touchArea && isMobile()) {
         touchArea.style.display = 'block';
+        console.log('Touch area shown for mobile');
     }
     
     // Create new wave of invaders - smaller and better positioned
@@ -819,6 +826,15 @@ function initMobileControls() {
     // Initialize mobile controls
     initMobileControls();
     initFingerControls();
+    
+    // Add click event listener for debugging
+    document.addEventListener('click', (e) => {
+        console.log('Click detected on:', e.target);
+        if (e.target.textContent === 'Start New Game') {
+            console.log('Start New Game button clicked!');
+            resetGame();
+        }
+    });
     
     // Show/hide mobile controls based on device
     const mobileControls = document.querySelector('.mobile-controls');
