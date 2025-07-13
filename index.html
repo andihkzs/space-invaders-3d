@@ -34,8 +34,8 @@
             left: 0;
             width: 100%;
             height: 60%;
-            background: rgba(0, 255, 0, 0.2); /* More visible for debugging */
-            border: 3px solid rgba(0, 255, 0, 0.8); /* More visible border */
+            background: transparent; /* Invisible background */
+            border: none; /* No border */
             display: none;
             z-index: 999;
             pointer-events: auto; /* Allow touch events */
@@ -249,6 +249,11 @@ gameOverElement.style.fontSize = '48px';
 gameOverElement.style.fontWeight = 'bold';
 gameOverElement.style.textAlign = 'center';
 gameOverElement.style.display = 'none';
+gameOverElement.style.zIndex = '10000'; // Ensure it's above everything
+gameOverElement.style.backgroundColor = 'rgba(0, 0, 0, 0.9)'; // Dark background
+gameOverElement.style.padding = '20px';
+gameOverElement.style.borderRadius = '10px';
+gameOverElement.style.border = '2px solid red';
 document.body.appendChild(gameOverElement);
 
 const highScoreElement = document.createElement('div'); // High Score display
@@ -342,6 +347,12 @@ function resetGame() {
     // Update displays
     scoreElement.innerText = `Score: ${score}`;
     gameOverElement.style.display = 'none';
+    
+    // Show touch area again when game restarts
+    const touchArea = document.querySelector('.touch-area');
+    if (touchArea && isMobile()) {
+        touchArea.style.display = 'block';
+    }
     
     // Create new wave of invaders - smaller and better positioned
     for (let row = 0; row < 3; row++) {
@@ -575,9 +586,6 @@ function initFingerControls() {
         
         // Start auto-fire
         startAutoFire();
-        
-        // Visual feedback
-        touchArea.style.background = 'rgba(0, 255, 0, 0.2)';
     });
     
     // Touch move
@@ -612,9 +620,6 @@ function initFingerControls() {
         
         // Stop auto-fire
         stopAutoFire();
-        
-        // Reset visual feedback
-        touchArea.style.background = 'rgba(0, 255, 0, 0.1)';
     });
     
     // Mouse support for desktop testing
@@ -627,7 +632,6 @@ function initFingerControls() {
         lastTouchY = e.clientY;
         
         startAutoFire();
-        touchArea.style.background = 'rgba(0, 255, 0, 0.2)';
     });
     
     touchArea.addEventListener('mousemove', (e) => {
@@ -651,14 +655,12 @@ function initFingerControls() {
         e.preventDefault();
         isTouching = false;
         stopAutoFire();
-        touchArea.style.background = 'rgba(0, 255, 0, 0.1)';
     });
     
     touchArea.addEventListener('mouseleave', (e) => {
         e.preventDefault();
         isTouching = false;
         stopAutoFire();
-        touchArea.style.background = 'rgba(0, 255, 0, 0.1)';
     });
 }
 
@@ -986,6 +988,12 @@ function animate() {
                         `;
                     }
                     gameOverElement.style.display = 'block';
+                    
+                    // Hide touch area when game is over
+                    const touchArea = document.querySelector('.touch-area');
+                    if (touchArea) {
+                        touchArea.style.display = 'none';
+                    }
                 }
             }
         }
@@ -1034,6 +1042,12 @@ function animate() {
                 `;
             }
             gameOverElement.style.display = 'block';
+            
+            // Hide touch area when game is over
+            const touchArea = document.querySelector('.touch-area');
+            if (touchArea) {
+                touchArea.style.display = 'none';
+            }
         }
     });
 
