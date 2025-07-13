@@ -145,7 +145,8 @@
             #scoreElement {
                 font-size: 18px !important;
                 top: 5px !important;
-                left: 10px !important;
+                right: 10px !important;
+                left: auto !important;
             }
             
             #highScoreElement {
@@ -158,6 +159,12 @@
                 font-size: 18px !important;
                 top: 5px !important;
                 left: 10px !important;
+            }
+            
+            .controlsElement {
+                top: 70px !important;
+                left: 10px !important;
+                font-size: 12px !important;
             }
         }
         
@@ -234,9 +241,11 @@ const scoreElement = document.createElement('div'); // HTML overlay for score
 scoreElement.id = 'scoreElement';
 scoreElement.style.position = 'absolute';
 scoreElement.style.top = '10px';
-scoreElement.style.left = '200px'; // Moved right to avoid logo overlap
+scoreElement.style.right = '10px'; // Moved to top right
 scoreElement.style.color = 'white';
 scoreElement.style.fontSize = '24px';
+scoreElement.style.fontWeight = 'bold';
+scoreElement.style.textAlign = 'right';
 document.body.appendChild(scoreElement);
 
 const gameOverElement = document.createElement('div'); // Game Over overlay
@@ -264,6 +273,7 @@ highScoreElement.style.right = '10px';
 highScoreElement.style.color = 'yellow';
 highScoreElement.style.fontSize = '20px';
 highScoreElement.style.fontWeight = 'bold';
+highScoreElement.style.textAlign = 'right';
 highScoreElement.textContent = `High Score: ${highScore}`;
 document.body.appendChild(highScoreElement);
 
@@ -301,7 +311,7 @@ document.body.appendChild(logoElement);
 const controlsElement = document.createElement('div');
 controlsElement.className = 'controlsElement';
 controlsElement.style.position = 'absolute';
-controlsElement.style.bottom = '10px';
+controlsElement.style.top = '80px'; // Position under the logo
 controlsElement.style.left = '10px';
 controlsElement.style.color = '#00ff00';
 controlsElement.style.fontSize = '14px';
