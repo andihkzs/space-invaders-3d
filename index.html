@@ -370,6 +370,7 @@ function resetGame() {
     }
     
     // Create new wave of invaders - smaller and better positioned
+    console.log('Creating new wave of invaders...');
     for (let row = 0; row < 3; row++) {
         for (let col = 0; col < 5; col++) {
             const invaderGeometry = new THREE.SphereGeometry(1.5, 16, 16);
@@ -386,6 +387,7 @@ function resetGame() {
             invaders.push(invader);
         }
     }
+    console.log('Created', invaders.length, 'invaders');
     
     // Reset ship position
     ship.position.set(0, -30, 0);
@@ -921,7 +923,8 @@ function animate() {
         // Check collisions
     projectiles.forEach((proj, pIndex) => {
         if (!proj.direction) { // Player projectile hitting invaders
-            invaders.forEach((inv, iIndex) => {
+            for (let iIndex = invaders.length - 1; iIndex >= 0; iIndex--) {
+                const inv = invaders[iIndex];
                 // Simple bounding box collision (check distance) - adjusted for smaller invaders
                 if (Math.abs(proj.position.x - inv.position.x) < 2 &&
                     Math.abs(proj.position.y - inv.position.y) < 2) {
@@ -935,6 +938,7 @@ function animate() {
                     // Check if all invaders are gone
                     if (invaders.length === 0) {
                         wave++;
+                        console.log('All invaders destroyed! Creating wave', wave);
                         // Respawn faster invaders - smaller and better positioned
                         for (let row = 0; row < 3; row++) {
                             for (let col = 0; col < 5; col++) {
@@ -952,9 +956,11 @@ function animate() {
                                 invaders.push(invader);
                             }
                         }
+                        console.log('Created', invaders.length, 'new invaders for wave', wave);
                     }
+                    break; // Exit the loop after hitting one invader
                 }
-            });
+            }
         } else { // Enemy projectile hitting player
             if (proj.mesh && !gameOver) {
                 const shipPos = ship.position;
