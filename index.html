@@ -1,13 +1,157 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>Space Invaders 3D</title>
     <style>
-        body { margin: 0; } /* Remove default margins */
-        canvas { display: block; } /* Full-screen canvas */
+        body { 
+            margin: 0; 
+            overflow: hidden;
+            touch-action: none; /* Prevent default touch behaviors */
+            user-select: none; /* Prevent text selection */
+        } 
+        canvas { 
+            display: block; 
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Mobile Controls */
+        .mobile-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none; /* Hidden by default, shown on mobile */
+            z-index: 1000;
+        }
+        
+        .control-pad {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .direction-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .direction-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #00ff00;
+            background: rgba(0, 255, 0, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #00ff00;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        
+        .control-btn:active,
+        .control-btn.active {
+            background: rgba(0, 255, 0, 0.5);
+            transform: scale(0.95);
+        }
+        
+        .fire-btn {
+            width: 80px;
+            height: 80px;
+            border: 4px solid #ff0000;
+            background: rgba(255, 0, 0, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #ff0000;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        
+        .fire-btn:active,
+        .fire-btn.active {
+            background: rgba(255, 0, 0, 0.6);
+            transform: scale(0.9);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: block;
+            }
+            
+            .controlsElement {
+                display: none !important; /* Hide desktop controls on mobile */
+            }
+            
+            /* Adjust UI elements for mobile */
+            #scoreElement {
+                font-size: 18px !important;
+                top: 5px !important;
+                left: 10px !important;
+            }
+            
+            #highScoreElement {
+                font-size: 16px !important;
+                top: 30px !important;
+                right: 10px !important;
+            }
+            
+            #logoElement {
+                font-size: 18px !important;
+                top: 5px !important;
+                left: 10px !important;
+            }
+        }
+        
+        /* Landscape orientation adjustments */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .mobile-controls {
+                bottom: 10px;
+            }
+            
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+            
+            .fire-btn {
+                width: 70px;
+                height: 70px;
+                font-size: 28px;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Mobile Controls -->
+    <div class="mobile-controls">
+        <div class="control-pad">
+            <div class="direction-controls">
+                <div class="direction-row">
+                    <div class="control-btn" id="leftBtn">←</div>
+                    <div class="control-btn" id="rightBtn">→</div>
+                </div>
+            </div>
+            <div class="fire-btn" id="fireBtn">🔥</div>
+        </div>
+    </div>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> <!-- Three.js library -->
     <script>
         // Global variables
@@ -26,6 +170,7 @@ let stars = []; // Array for star animation
 let audioContext;
 let shootSound;
 const scoreElement = document.createElement('div'); // HTML overlay for score
+scoreElement.id = 'scoreElement';
 scoreElement.style.position = 'absolute';
 scoreElement.style.top = '10px';
 scoreElement.style.left = '200px'; // Moved right to avoid logo overlap
@@ -46,6 +191,7 @@ gameOverElement.style.display = 'none';
 document.body.appendChild(gameOverElement);
 
 const highScoreElement = document.createElement('div'); // High Score display
+highScoreElement.id = 'highScoreElement';
 highScoreElement.style.position = 'absolute';
 highScoreElement.style.top = '40px';
 highScoreElement.style.right = '10px';
@@ -57,6 +203,7 @@ document.body.appendChild(highScoreElement);
 
 // ZHONG GAMES Logo
 const logoElement = document.createElement('div');
+logoElement.id = 'logoElement';
 logoElement.style.position = 'absolute';
 logoElement.style.top = '10px';
 logoElement.style.left = '10px';
@@ -86,6 +233,7 @@ document.body.appendChild(logoElement);
 
 // Controls Information Panel
 const controlsElement = document.createElement('div');
+controlsElement.className = 'controlsElement';
 controlsElement.style.position = 'absolute';
 controlsElement.style.bottom = '10px';
 controlsElement.style.left = '10px';
@@ -331,14 +479,143 @@ function init() {
     }
 
     // Keyboard controls
-    document.addEventListener('keydown', (event) => { keys[event.key] = true; });
-    document.addEventListener('keyup', (event) => { keys[event.key] = false; });
+document.addEventListener('keydown', (event) => { keys[event.key] = true; });
+document.addEventListener('keyup', (event) => { keys[event.key] = false; });
 
+// Mobile detection
+function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768;
+}
+
+// Mobile touch controls
+function initMobileControls() {
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    const fireBtn = document.getElementById('fireBtn');
+    
+    // Left button
+    leftBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        keys['ArrowLeft'] = true;
+        leftBtn.classList.add('active');
+    });
+    
+    leftBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        keys['ArrowLeft'] = false;
+        leftBtn.classList.remove('active');
+    });
+    
+    // Right button
+    rightBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        keys['ArrowRight'] = true;
+        rightBtn.classList.add('active');
+    });
+    
+    rightBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        keys['ArrowRight'] = false;
+        rightBtn.classList.remove('active');
+    });
+    
+    // Fire button
+    fireBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        keys[' '] = true;
+        fireBtn.classList.add('active');
+    });
+    
+    fireBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        keys[' '] = false;
+        fireBtn.classList.remove('active');
+    });
+    
+    // Mouse support for desktop testing
+    leftBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        keys['ArrowLeft'] = true;
+        leftBtn.classList.add('active');
+    });
+    
+    leftBtn.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        keys['ArrowLeft'] = false;
+        leftBtn.classList.remove('active');
+    });
+    
+    leftBtn.addEventListener('mouseleave', (e) => {
+        e.preventDefault();
+        keys['ArrowLeft'] = false;
+        leftBtn.classList.remove('active');
+    });
+    
+    rightBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        keys['ArrowRight'] = true;
+        rightBtn.classList.add('active');
+    });
+    
+    rightBtn.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        keys['ArrowRight'] = false;
+        rightBtn.classList.remove('active');
+    });
+    
+    rightBtn.addEventListener('mouseleave', (e) => {
+        e.preventDefault();
+        keys['ArrowRight'] = false;
+        rightBtn.classList.remove('active');
+    });
+    
+    fireBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        keys[' '] = true;
+        fireBtn.classList.add('active');
+    });
+    
+    fireBtn.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        keys[' '] = false;
+        fireBtn.classList.remove('active');
+    });
+    
+    fireBtn.addEventListener('mouseleave', (e) => {
+        e.preventDefault();
+        keys[' '] = false;
+        fireBtn.classList.remove('active');
+    });
+}
+
+    // Initialize mobile controls
+    initMobileControls();
+    
+    // Show/hide mobile controls based on device
+    const mobileControls = document.querySelector('.mobile-controls');
+    if (isMobile()) {
+        mobileControls.style.display = 'block';
+        controlsElement.style.display = 'none'; // Hide desktop controls
+    } else {
+        mobileControls.style.display = 'none';
+        controlsElement.style.display = 'block'; // Show desktop controls
+    }
+    
     // Make it responsive
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        // Update mobile controls visibility on resize
+        if (isMobile()) {
+            mobileControls.style.display = 'block';
+            controlsElement.style.display = 'none';
+        } else {
+            mobileControls.style.display = 'none';
+            controlsElement.style.display = 'block';
+        }
     });
 
     // Call the animation loop
