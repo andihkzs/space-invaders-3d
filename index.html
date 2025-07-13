@@ -27,6 +27,41 @@
             z-index: 1000;
         }
         
+        /* Touch area indicator */
+        .touch-area {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px dashed rgba(0, 255, 0, 0.3);
+            display: none;
+            z-index: 999;
+            pointer-events: none;
+        }
+        
+        .touch-area.active {
+            display: block;
+        }
+        
+        /* Touch area instructions */
+        .touch-instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ff00;
+            font-size: 16px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid #00ff00;
+            display: none;
+            z-index: 1001;
+        }
+        
         .control-pad {
             display: flex;
             gap: 20px;
@@ -91,6 +126,14 @@
         /* Responsive Design */
         @media (max-width: 768px) {
             .mobile-controls {
+                display: none; /* Hide buttons, use finger controls */
+            }
+            
+            .touch-area {
+                display: block;
+            }
+            
+            .touch-instructions {
                 display: block;
             }
             
@@ -139,7 +182,15 @@
     </style>
 </head>
 <body>
-    <!-- Mobile Controls -->
+    <!-- Touch Area for Finger Controls -->
+    <div class="touch-area" id="touchArea"></div>
+    
+    <!-- Touch Instructions -->
+    <div class="touch-instructions" id="touchInstructions">
+        👆 Touch & drag to move • Hold to auto-fire
+    </div>
+    
+    <!-- Mobile Controls (Fallback) -->
     <div class="mobile-controls">
         <div class="control-pad">
             <div class="direction-controls">
@@ -165,6 +216,16 @@ let gameOver = false;
 let wave = 1;
 let highScore = localStorage.getItem('spaceInvadersHighScore') || 0;
 let stars = []; // Array for star animation
+
+// Touch control variables
+let isTouching = false;
+let touchStartX = 0;
+let touchStartY = 0;
+let lastTouchX = 0;
+let lastTouchY = 0;
+let touchMoveThreshold = 10; // Minimum distance for movement
+let autoFireInterval = null;
+let autoFireRate = 300; // Milliseconds between auto-fire shots
 
 // Audio context for sound effects
 let audioContext;
@@ -488,6 +549,140 @@ function isMobile() {
            window.innerWidth <= 768;
 }
 
+// Finger control functions
+function initFingerControls() {
+    const touchArea = document.getElementById('touchArea');
+    
+    // Touch start
+    touchArea.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        isTouching = true;
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+        
+        // Start auto-fire
+        startAutoFire();
+        
+        // Visual feedback
+        touchArea.style.background = 'rgba(0, 255, 0, 0.2)';
+    });
+    
+    // Touch move
+    touchArea.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!isTouching) return;
+        
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - lastTouchX;
+        const deltaY = touch.clientY - lastTouchY;
+        
+        // Move ship based on touch movement
+        if (Math.abs(deltaX) > touchMoveThreshold / 10) {
+            const moveSpeed = deltaX * 0.02; // Adjust sensitivity
+            ship.position.x += moveSpeed;
+            
+            // Keep ship within bounds
+            ship.position.x = Math.max(-40, Math.min(40, ship.position.x));
+        }
+        
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+    });
+    
+    // Touch end
+    touchArea.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        isTouching = false;
+        
+        // Stop auto-fire
+        stopAutoFire();
+        
+        // Reset visual feedback
+        touchArea.style.background = 'rgba(0, 255, 0, 0.1)';
+    });
+    
+    // Mouse support for desktop testing
+    touchArea.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isTouching = true;
+        touchStartX = e.clientX;
+        touchStartY = e.clientY;
+        lastTouchX = e.clientX;
+        lastTouchY = e.clientY;
+        
+        startAutoFire();
+        touchArea.style.background = 'rgba(0, 255, 0, 0.2)';
+    });
+    
+    touchArea.addEventListener('mousemove', (e) => {
+        e.preventDefault();
+        if (!isTouching) return;
+        
+        const deltaX = e.clientX - lastTouchX;
+        const deltaY = e.clientY - lastTouchY;
+        
+        if (Math.abs(deltaX) > touchMoveThreshold / 10) {
+            const moveSpeed = deltaX * 0.02;
+            ship.position.x += moveSpeed;
+            ship.position.x = Math.max(-40, Math.min(40, ship.position.x));
+        }
+        
+        lastTouchX = e.clientX;
+        lastTouchY = e.clientY;
+    });
+    
+    touchArea.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        isTouching = false;
+        stopAutoFire();
+        touchArea.style.background = 'rgba(0, 255, 0, 0.1)';
+    });
+    
+    touchArea.addEventListener('mouseleave', (e) => {
+        e.preventDefault();
+        isTouching = false;
+        stopAutoFire();
+        touchArea.style.background = 'rgba(0, 255, 0, 0.1)';
+    });
+}
+
+// Auto-fire functions
+function startAutoFire() {
+    if (autoFireInterval) return;
+    autoFireInterval = setInterval(() => {
+        if (!gameOver && isTouching) {
+            // Create laser
+            const laserGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5, 32);
+            const laserMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xff0000,
+                shininess: 200,
+                specular: 0xffffff,
+                emissive: 0x330000
+            });
+            const laser = new THREE.Mesh(laserGeometry, laserMaterial);
+            laser.position.set(ship.position.x, ship.position.y + 3, 0);
+            laser.rotation.x = Math.PI / 2;
+            scene.add(laser);
+            projectiles.push(laser);
+            
+            // Play shooting sound
+            if (shootSound) {
+                shootSound();
+            }
+        }
+    }, autoFireRate);
+}
+
+function stopAutoFire() {
+    if (autoFireInterval) {
+        clearInterval(autoFireInterval);
+        autoFireInterval = null;
+    }
+}
+
 // Mobile touch controls
 function initMobileControls() {
     const leftBtn = document.getElementById('leftBtn');
@@ -591,14 +786,21 @@ function initMobileControls() {
 
     // Initialize mobile controls
     initMobileControls();
+    initFingerControls();
     
     // Show/hide mobile controls based on device
     const mobileControls = document.querySelector('.mobile-controls');
+    const touchArea = document.querySelector('.touch-area');
+    const touchInstructions = document.querySelector('.touch-instructions');
     if (isMobile()) {
-        mobileControls.style.display = 'block';
+        mobileControls.style.display = 'none'; // Hide buttons, use finger controls
+        touchArea.style.display = 'block';
+        touchInstructions.style.display = 'block';
         controlsElement.style.display = 'none'; // Hide desktop controls
     } else {
         mobileControls.style.display = 'none';
+        touchArea.style.display = 'none';
+        touchInstructions.style.display = 'none';
         controlsElement.style.display = 'block'; // Show desktop controls
     }
     
@@ -609,11 +811,16 @@ function initMobileControls() {
         renderer.setSize(window.innerWidth, window.innerHeight);
         
         // Update mobile controls visibility on resize
+        const touchInstructions = document.querySelector('.touch-instructions');
         if (isMobile()) {
-            mobileControls.style.display = 'block';
+            mobileControls.style.display = 'none'; // Hide buttons, use finger controls
+            touchArea.style.display = 'block';
+            touchInstructions.style.display = 'block';
             controlsElement.style.display = 'none';
         } else {
             mobileControls.style.display = 'none';
+            touchArea.style.display = 'none';
+            touchInstructions.style.display = 'none';
             controlsElement.style.display = 'block';
         }
     });
