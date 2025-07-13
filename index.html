@@ -48,12 +48,11 @@
         /* Touch area instructions */
         .touch-instructions {
             position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 80px; /* Position under the logo */
+            left: 10px;
             color: #00ff00;
             font-size: 16px;
-            text-align: center;
+            text-align: left;
             background: rgba(0, 0, 0, 0.7);
             padding: 10px 20px;
             border-radius: 10px;
@@ -161,8 +160,14 @@
                 left: 10px !important;
             }
             
-            .controlsElement {
+            .touch-instructions {
                 top: 70px !important;
+                left: 10px !important;
+                font-size: 14px !important;
+            }
+            
+            .controlsElement {
+                top: 120px !important;
                 left: 10px !important;
                 font-size: 12px !important;
             }
@@ -311,7 +316,7 @@ document.body.appendChild(logoElement);
 const controlsElement = document.createElement('div');
 controlsElement.className = 'controlsElement';
 controlsElement.style.position = 'absolute';
-controlsElement.style.top = '80px'; // Position under the logo
+controlsElement.style.top = '140px'; // Position under the touch instructions
 controlsElement.style.left = '10px';
 controlsElement.style.color = '#00ff00';
 controlsElement.style.fontSize = '14px';
