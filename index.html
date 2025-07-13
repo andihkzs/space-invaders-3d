@@ -34,11 +34,11 @@
             left: 0;
             width: 100%;
             height: 60%;
-            background: rgba(0, 255, 0, 0.1);
-            border: 2px dashed rgba(0, 255, 0, 0.3);
+            background: rgba(0, 255, 0, 0.2); /* More visible for debugging */
+            border: 3px solid rgba(0, 255, 0, 0.8); /* More visible border */
             display: none;
             z-index: 999;
-            pointer-events: none;
+            pointer-events: auto; /* Allow touch events */
         }
         
         .touch-area.active {
@@ -552,9 +552,11 @@ function isMobile() {
 // Finger control functions
 function initFingerControls() {
     const touchArea = document.getElementById('touchArea');
+    console.log('Initializing finger controls, touchArea:', touchArea);
     
     // Touch start
     touchArea.addEventListener('touchstart', (e) => {
+        console.log('Touch start detected!');
         e.preventDefault();
         const touch = e.touches[0];
         isTouching = true;
@@ -579,6 +581,8 @@ function initFingerControls() {
         const deltaX = touch.clientX - lastTouchX;
         const deltaY = touch.clientY - lastTouchY;
         
+        console.log('Touch move - deltaX:', deltaX, 'ship position:', ship.position.x);
+        
         // Move ship based on touch movement
         if (Math.abs(deltaX) > touchMoveThreshold / 10) {
             const moveSpeed = deltaX * 0.02; // Adjust sensitivity
@@ -594,6 +598,7 @@ function initFingerControls() {
     
     // Touch end
     touchArea.addEventListener('touchend', (e) => {
+        console.log('Touch end detected!');
         e.preventDefault();
         isTouching = false;
         
@@ -792,16 +797,22 @@ function initMobileControls() {
     const mobileControls = document.querySelector('.mobile-controls');
     const touchArea = document.querySelector('.touch-area');
     const touchInstructions = document.querySelector('.touch-instructions');
+    
+    console.log('Device detection - isMobile():', isMobile());
+    console.log('Touch area element:', touchArea);
+    
     if (isMobile()) {
         mobileControls.style.display = 'none'; // Hide buttons, use finger controls
         touchArea.style.display = 'block';
         touchInstructions.style.display = 'block';
         controlsElement.style.display = 'none'; // Hide desktop controls
+        console.log('Mobile mode activated - touch area should be visible');
     } else {
         mobileControls.style.display = 'none';
         touchArea.style.display = 'none';
         touchInstructions.style.display = 'none';
         controlsElement.style.display = 'block'; // Show desktop controls
+        console.log('Desktop mode activated');
     }
     
     // Make it responsive
