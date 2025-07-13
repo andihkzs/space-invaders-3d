@@ -343,11 +343,19 @@ function resetGame() {
     scoreElement.innerText = `Score: ${score}`;
     gameOverElement.style.display = 'none';
     
-    // Create new wave of invaders
+    // Create new wave of invaders - smaller and better positioned
     for (let row = 0; row < 3; row++) {
         for (let col = 0; col < 5; col++) {
-            const invader = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
-            invader.position.set(col * 10 - 20, 40 - row * 10, 0);
+            const invaderGeometry = new THREE.SphereGeometry(1.5, 16, 16);
+            const invaderMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffff00,
+                shininess: 50,
+                specular: 0x222222,
+                transparent: true,
+                opacity: 0.9
+            });
+            const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+            invader.position.set(col * 6 - 12, 30 - row * 6, 0);
             scene.add(invader);
             invaders.push(invader);
         }
@@ -520,11 +528,11 @@ function init() {
     ship.position.y = -30; // Bottom of screen
     scene.add(ship);
 
-    // Create 5x3 grid of invaders
+    // Create 5x3 grid of invaders - smaller and better positioned
     for (let row = 0; row < 3; row++) {
         for (let col = 0; col < 5; col++) {
-            // Create Pac-Man like shape using sphere geometry with custom material
-            const invaderGeometry = new THREE.SphereGeometry(3, 16, 16);
+            // Create smaller invaders using sphere geometry with custom material
+            const invaderGeometry = new THREE.SphereGeometry(1.5, 16, 16); // Reduced from 3 to 1.5
             const invaderMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0xffff00, // Yellow like Pac-Man
                 shininess: 50,
@@ -533,7 +541,7 @@ function init() {
                 opacity: 0.9
             });
             const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
-            invader.position.set(col * 10 - 20, 40 - row * 10, 0); // Grid positions
+            invader.position.set(col * 6 - 12, 30 - row * 6, 0); // Closer spacing and higher position
             scene.add(invader);
             invaders.push(invader);
         }
@@ -583,9 +591,9 @@ function initFingerControls() {
         
         console.log('Touch move - deltaX:', deltaX, 'ship position:', ship.position.x);
         
-        // Move ship based on touch movement
-        if (Math.abs(deltaX) > touchMoveThreshold / 10) {
-            const moveSpeed = deltaX * 0.02; // Adjust sensitivity
+        // Move ship based on touch movement - increased sensitivity
+        if (Math.abs(deltaX) > touchMoveThreshold / 50) { // Lower threshold for more sensitivity
+            const moveSpeed = deltaX * 0.1; // Increased from 0.02 to 0.1 for more sensitivity
             ship.position.x += moveSpeed;
             
             // Keep ship within bounds
@@ -629,8 +637,8 @@ function initFingerControls() {
         const deltaX = e.clientX - lastTouchX;
         const deltaY = e.clientY - lastTouchY;
         
-        if (Math.abs(deltaX) > touchMoveThreshold / 10) {
-            const moveSpeed = deltaX * 0.02;
+        if (Math.abs(deltaX) > touchMoveThreshold / 50) { // Lower threshold for more sensitivity
+            const moveSpeed = deltaX * 0.1; // Increased sensitivity
             ship.position.x += moveSpeed;
             ship.position.x = Math.max(-40, Math.min(40, ship.position.x));
         }
@@ -897,9 +905,9 @@ function animate() {
     projectiles.forEach((proj, pIndex) => {
         if (!proj.direction) { // Player projectile hitting invaders
             invaders.forEach((inv, iIndex) => {
-                // Simple bounding box collision (check distance)
-                if (Math.abs(proj.position.x - inv.position.x) < 3 &&
-                    Math.abs(proj.position.y - inv.position.y) < 3) {
+                // Simple bounding box collision (check distance) - adjusted for smaller invaders
+                if (Math.abs(proj.position.x - inv.position.x) < 2 &&
+                    Math.abs(proj.position.y - inv.position.y) < 2) {
                     scene.remove(proj);
                     scene.remove(inv);
                     projectiles.splice(pIndex, 1);
@@ -910,11 +918,19 @@ function animate() {
                     // Check if all invaders are gone
                     if (invaders.length === 0) {
                         wave++;
-                        // Respawn faster invaders
+                        // Respawn faster invaders - smaller and better positioned
                         for (let row = 0; row < 3; row++) {
                             for (let col = 0; col < 5; col++) {
-                                const invader = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
-                                invader.position.set(col * 10 - 20, 40 - row * 10, 0);
+                                const invaderGeometry = new THREE.SphereGeometry(1.5, 16, 16);
+                                const invaderMaterial = new THREE.MeshPhongMaterial({ 
+                                    color: 0xffff00,
+                                    shininess: 50,
+                                    specular: 0x222222,
+                                    transparent: true,
+                                    opacity: 0.9
+                                });
+                                const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                                invader.position.set(col * 6 - 12, 30 - row * 6, 0);
                                 scene.add(invader);
                                 invaders.push(invader);
                             }
