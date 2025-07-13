@@ -408,6 +408,7 @@ function resetGame() {
         starGroup.rotation.z = 0;
     });
 }
+window.resetGame = resetGame;
 
 // Initialize audio
 function initAudio() {
@@ -721,6 +722,7 @@ function stopAutoFire() {
         autoFireInterval = null;
     }
 }
+window.stopAutoFire = stopAutoFire;
 
 // Mobile touch controls
 function initMobileControls() {
