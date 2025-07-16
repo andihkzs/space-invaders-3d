@@ -338,22 +338,56 @@ controlsElement.innerHTML = `
 `;
 document.body.appendChild(controlsElement);
 
-// Reset game function
+// Enhanced reset game function
 function resetGame() {
     console.log('resetGame() called!');
+    
     // Clear all invaders
-    invaders.forEach(inv => scene.remove(inv));
+    invaders.forEach(inv => {
+        scene.remove(inv);
+        // Dispose of geometries and materials to prevent memory leaks
+        inv.children.forEach(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(mat => mat.dispose());
+                } else {
+                    child.material.dispose();
+                }
+            }
+        });
+    });
     invaders = [];
     
     // Clear all projectiles
     projectiles.forEach(proj => {
         if (proj.mesh) {
             scene.remove(proj.mesh);
+            // Dispose of projectile resources
+            proj.mesh.children.forEach(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            });
         } else {
             scene.remove(proj);
+            // Dispose of projectile resources
+            proj.children.forEach(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            });
         }
     });
     projectiles = [];
+    
+    // Clear all explosions
+    explosions.forEach(explosion => {
+        scene.remove(explosion);
+        explosion.children.forEach(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+    });
+    explosions = [];
     
     // Reset game state
     score = 0;
@@ -376,37 +410,113 @@ function resetGame() {
         console.log('Touch area shown for mobile');
     }
     
-    // Create new wave of invaders - smaller and better positioned
-    console.log('Creating new wave of invaders...');
+    // Create new enhanced wave of invaders
+    console.log('Creating new enhanced wave of invaders...');
     for (let row = 0; row < 3; row++) {
         for (let col = 0; col < 5; col++) {
-            const invaderGeometry = new THREE.SphereGeometry(1.5, 16, 16);
-            const invaderMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0xffff00,
-                shininess: 50,
-                specular: 0x222222,
+            const invaderGroup = new THREE.Group();
+            
+            // Different invader types per row
+            if (row === 0) {
+                // Elite invaders
+                const invaderGeometry = new THREE.OctahedronGeometry(1.8, 1);
+                const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                    color: 0xff6600,
+                    metalness: 0.9,
+                    roughness: 0.1,
+                    emissive: 0x331100,
+                    emissiveIntensity: 0.8,
+                    transparent: true,
+                    opacity: 0.95
+                });
+                const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                invader.castShadow = true;
+                invader.receiveShadow = true;
+                invaderGroup.add(invader);
+                
+                const ringGeometry = new THREE.RingGeometry(2, 2.5, 16);
+                const ringMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff3300,
+                    transparent: true,
+                    opacity: 0.6,
+                    emissive: 0xff3300,
+                    emissiveIntensity: 0.4,
+                    side: THREE.DoubleSide
+                });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.rotation.x = Math.PI / 2;
+                invaderGroup.add(ring);
+                invaderGroup.userData = { ring, type: 'elite' };
+                
+            } else if (row === 1) {
+                // Standard invaders
+                const invaderGeometry = new THREE.IcosahedronGeometry(1.6, 0);
+                const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                    color: 0xffff00,
+                    metalness: 0.6,
+                    roughness: 0.3,
+                    emissive: 0x444400,
+                    emissiveIntensity: 0.6,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                invader.castShadow = true;
+                invader.receiveShadow = true;
+                invaderGroup.add(invader);
+                invaderGroup.userData = { type: 'standard' };
+                
+            } else {
+                // Scout invaders
+                const invaderGeometry = new THREE.TetrahedronGeometry(1.4, 0);
+                const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                    color: 0x00ff88,
+                    metalness: 0.4,
+                    roughness: 0.4,
+                    emissive: 0x002244,
+                    emissiveIntensity: 0.4,
+                    transparent: true,
+                    opacity: 0.85
+                });
+                const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                invader.castShadow = true;
+                invader.receiveShadow = true;
+                invaderGroup.add(invader);
+                invaderGroup.userData = { type: 'scout' };
+            }
+            
+            // Add glow effect
+            const glowGeometry = new THREE.SphereGeometry(2.5, 16, 16);
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: invaderGroup.children[0].material.color,
                 transparent: true,
-                opacity: 0.9
+                opacity: 0.1,
+                side: THREE.BackSide
             });
-            const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
-            invader.position.set(col * 6 - 12, 30 - row * 6, 0);
-            scene.add(invader);
-            invaders.push(invader);
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            invaderGroup.add(glow);
+            invaderGroup.userData.glow = glow;
+            
+            invaderGroup.position.set(col * 6 - 12, 30 - row * 6, 0);
+            scene.add(invaderGroup);
+            invaders.push(invaderGroup);
         }
     }
-    console.log('Created', invaders.length, 'invaders');
+    console.log('Created', invaders.length, 'enhanced invaders');
     
     // Reset ship position
     ship.position.set(0, -30, 0);
     
     // Reset stars positions for fresh flying effect
     stars.forEach(starGroup => {
-        starGroup.position.z = Math.random() * 100 - 200;
-        starGroup.position.x = Math.random() * 200 - 100;
-        starGroup.position.y = Math.random() * 200 - 100;
+        starGroup.position.z = Math.random() * 200 - 300;
+        starGroup.position.x = Math.random() * 300 - 150;
+        starGroup.position.y = Math.random() * 300 - 150;
         starGroup.scale.setScalar(0.5);
         starGroup.rotation.z = 0;
     });
+    
+    console.log('Game reset complete!');
 }
 window.resetGame = resetGame;
 
@@ -444,142 +554,458 @@ function init() {
     // Initialize audio
     initAudio();
     
-    // Create scene
+    // Create scene with enhanced space background
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000); // Black space background
+    
+    // Create nebula background with gradient
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const context = canvas.getContext('2d');
+    
+    // Create radial gradient for nebula effect
+    const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
+    gradient.addColorStop(0, 'rgba(20, 20, 80, 0.8)');
+    gradient.addColorStop(0.3, 'rgba(40, 20, 60, 0.6)');
+    gradient.addColorStop(0.6, 'rgba(60, 40, 80, 0.4)');
+    gradient.addColorStop(1, 'rgba(0, 0, 20, 0.2)');
+    
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 512, 512);
+    
+    // Add some random nebula clouds
+    for (let i = 0; i < 20; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const radius = 20 + Math.random() * 40;
+        const nebulaGradient = context.createRadialGradient(x, y, 0, x, y, radius);
+        nebulaGradient.addColorStop(0, `rgba(${100 + Math.random() * 100}, ${50 + Math.random() * 50}, ${150 + Math.random() * 100}, 0.3)`);
+        nebulaGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        context.fillStyle = nebulaGradient;
+        context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    scene.background = texture;
 
     // Create perspective camera (field of view, aspect ratio, near/far clipping)
     const aspect = window.innerWidth / window.innerHeight;
     camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
     camera.position.z = 50; // Move camera back to see the scene
 
-    // Create renderer and attach to canvas
-    renderer = new THREE.WebGLRenderer();
+    // Create renderer with advanced settings
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     document.body.appendChild(renderer.domElement);
 
-    // Enhanced lighting for better 3D effect
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.4); // Soft ambient light
+    // Enhanced lighting system for dramatic 3D effects
+    const ambientLight = new THREE.AmbientLight(0x0a0a2a, 0.3); // Dark blue ambient
     scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(0, 0, 50);
+    // Main directional light (sun-like)
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    directionalLight.position.set(10, 20, 50);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
     scene.add(directionalLight);
     
-    const pointLight = new THREE.PointLight(0x00ff00, 1, 100); // Green point light
-    pointLight.position.set(0, -20, 20);
-    scene.add(pointLight);
+    // Dynamic colored lights
+    const playerLight = new THREE.PointLight(0x00ff00, 2, 50); // Green light from player
+    playerLight.position.set(0, -25, 10);
+    scene.add(playerLight);
+    
+    const enemyLight = new THREE.PointLight(0xffff00, 1.5, 80); // Yellow light from enemies
+    enemyLight.position.set(0, 20, 15);
+    scene.add(enemyLight);
+    
+    // Pulsing blue accent light
+    const accentLight = new THREE.PointLight(0x0088ff, 1, 100);
+    accentLight.position.set(-30, 0, 20);
+    scene.add(accentLight);
+    
+    // Store lights for animation
+    window.gameData = { playerLight, enemyLight, accentLight };
 
-    // Add stars background with flying effect and multiple trails
-    for (let i = 0; i < 30; i++) {
-        // Create star with multiple trails (schweif)
+    // Enhanced star field with nebula-like effects
+    for (let i = 0; i < 50; i++) {
         const starGroup = new THREE.Group();
         
-        // Main star (bright center)
-        const starCore = new THREE.Mesh(
-            new THREE.SphereGeometry(0.4), 
-            new THREE.MeshBasicMaterial({ color: 0xffffff, emissive: 0xffffff })
-        );
+        // Create different star types
+        const starType = Math.random();
+        let starCore;
+        
+        if (starType < 0.6) {
+            // Regular white stars
+            starCore = new THREE.Mesh(
+                new THREE.SphereGeometry(0.3 + Math.random() * 0.4), 
+                new THREE.MeshBasicMaterial({ 
+                    color: 0xffffff, 
+                    emissive: 0xffffff,
+                    emissiveIntensity: 0.8 + Math.random() * 0.4
+                })
+            );
+        } else if (starType < 0.8) {
+            // Blue giant stars
+            starCore = new THREE.Mesh(
+                new THREE.SphereGeometry(0.5 + Math.random() * 0.3), 
+                new THREE.MeshBasicMaterial({ 
+                    color: 0x4488ff, 
+                    emissive: 0x2266dd,
+                    emissiveIntensity: 1.0 + Math.random() * 0.5
+                })
+            );
+        } else {
+            // Red giant stars
+            starCore = new THREE.Mesh(
+                new THREE.SphereGeometry(0.6 + Math.random() * 0.4), 
+                new THREE.MeshBasicMaterial({ 
+                    color: 0xff4444, 
+                    emissive: 0xdd2222,
+                    emissiveIntensity: 0.9 + Math.random() * 0.3
+                })
+            );
+        }
         starGroup.add(starCore);
         
-        // Multiple star trails for more dramatic effect
-        for (let j = 0; j < 3; j++) {
-            const trailGeometry = new THREE.ConeGeometry(0.05 + j * 0.02, 2 + j * 1.5, 8);
+        // Enhanced star trails with color variation
+        const trailCount = 2 + Math.floor(Math.random() * 3);
+        for (let j = 0; j < trailCount; j++) {
+            const trailGeometry = new THREE.ConeGeometry(0.03 + j * 0.015, 1.5 + j * 1.2, 8);
+            const trailColor = starCore.material.color.clone();
             const trailMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xffffff, 
+                color: trailColor, 
                 transparent: true, 
-                opacity: 0.4 - j * 0.1 
+                opacity: 0.5 - j * 0.12,
+                emissive: trailColor,
+                emissiveIntensity: 0.3 - j * 0.08
             });
             const trail = new THREE.Mesh(trailGeometry, trailMaterial);
-            trail.rotation.x = Math.PI; // Point backwards
-            trail.position.z = -1 - j * 1.5; // Position behind the star, layered
+            trail.rotation.x = Math.PI;
+            trail.position.z = -0.8 - j * 1.2;
             starGroup.add(trail);
         }
         
+        // Add subtle glow effect
+        const glowGeometry = new THREE.SphereGeometry(starCore.geometry.parameters.radius * 2, 16, 16);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: starCore.material.color,
+            transparent: true,
+            opacity: 0.1,
+            side: THREE.BackSide
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        starGroup.add(glow);
+        
         // Position star randomly in 3D space
         starGroup.position.set(
-            Math.random() * 200 - 100, 
-            Math.random() * 200 - 100, 
-            Math.random() * 100 - 200
+            Math.random() * 300 - 150, 
+            Math.random() * 300 - 150, 
+            Math.random() * 200 - 300
         );
         
         scene.add(starGroup);
         stars.push(starGroup);
     }
 
-    // Player ship - create a smaller, more realistic airplane
+    // Advanced spaceship with detailed geometry and effects
     const shipGroup = new THREE.Group();
     
-    // Main body (smaller, more realistic proportions)
-    const bodyGeometry = new THREE.ConeGeometry(1.5, 6, 32);
-    const bodyMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x00ff00,
-        shininess: 100,
-        specular: 0x444444
+    // Main fuselage (sleeker design)
+    const fuselageGeometry = new THREE.CylinderGeometry(0.8, 1.2, 7, 16);
+    const fuselageMaterial = new THREE.MeshPhysicalMaterial({ 
+        color: 0x00cc00,
+        metalness: 0.9,
+        roughness: 0.1,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+        emissive: 0x003300,
+        emissiveIntensity: 0.4
     });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.rotation.x = Math.PI; // Point upward
-    shipGroup.add(body);
+    const fuselage = new THREE.Mesh(fuselageGeometry, fuselageMaterial);
+    fuselage.rotation.x = Math.PI;
+    fuselage.castShadow = true;
+    fuselage.receiveShadow = true;
+    shipGroup.add(fuselage);
     
-    // Wings (smaller and more proportional)
-    const wingGeometry = new THREE.BoxGeometry(4, 0.5, 2);
-    const wingMaterial = new THREE.MeshPhongMaterial({ 
+    // Nose cone
+    const noseGeometry = new THREE.ConeGeometry(0.8, 2, 16);
+    const noseMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x00ff00,
+        metalness: 0.95,
+        roughness: 0.05,
+        clearcoat: 1.0,
+        emissive: 0x004400,
+        emissiveIntensity: 0.6
+    });
+    const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+    nose.position.set(0, 4.5, 0);
+    nose.castShadow = true;
+    nose.receiveShadow = true;
+    shipGroup.add(nose);
+    
+    // Main wings (swept back design)
+    const wingGeometry = new THREE.BoxGeometry(6, 0.4, 3);
+    const wingMaterial = new THREE.MeshPhysicalMaterial({ 
         color: 0x008800,
-        shininess: 80,
-        specular: 0x333333
+        metalness: 0.8,
+        roughness: 0.2,
+        clearcoat: 0.9,
+        emissive: 0x002200,
+        emissiveIntensity: 0.3
     });
     const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    leftWing.position.set(-2, -1, 0);
+    leftWing.position.set(-3, -0.5, -0.5);
+    leftWing.rotation.z = -0.2;
+    leftWing.castShadow = true;
+    leftWing.receiveShadow = true;
     shipGroup.add(leftWing);
     
     const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    rightWing.position.set(2, -1, 0);
+    rightWing.position.set(3, -0.5, -0.5);
+    rightWing.rotation.z = 0.2;
+    rightWing.castShadow = true;
+    rightWing.receiveShadow = true;
     shipGroup.add(rightWing);
     
-    // Cockpit (smaller and more realistic)
-    const cockpitGeometry = new THREE.SphereGeometry(0.8, 16, 16);
-    const cockpitMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x00ffff,
-        shininess: 200,
-        specular: 0x666666,
+    // Wing tip lights
+    const wingTipGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+    const leftTipMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff0000,
+        emissive: 0xff0000,
+        emissiveIntensity: 1.0
+    });
+    const rightTipMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        emissive: 0x00ff00,
+        emissiveIntensity: 1.0
+    });
+    const leftTip = new THREE.Mesh(wingTipGeometry, leftTipMaterial);
+    leftTip.position.set(-6, -0.5, -0.5);
+    shipGroup.add(leftTip);
+    
+    const rightTip = new THREE.Mesh(wingTipGeometry, rightTipMaterial);
+    rightTip.position.set(6, -0.5, -0.5);
+    shipGroup.add(rightTip);
+    
+    // Cockpit with enhanced glass effect
+    const cockpitGeometry = new THREE.SphereGeometry(1.0, 20, 20);
+    const cockpitMaterial = new THREE.MeshPhysicalMaterial({ 
+        color: 0x88ffff,
+        metalness: 0.0,
+        roughness: 0.0,
+        transmission: 0.9,
         transparent: true,
-        opacity: 0.7
+        opacity: 0.2,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        emissive: 0x006666,
+        emissiveIntensity: 0.7,
+        ior: 1.5
     });
     const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
-    cockpit.position.set(0, 1, 0);
+    cockpit.position.set(0, 1.5, 0);
+    cockpit.scale.set(1, 0.6, 1);
+    cockpit.castShadow = true;
+    cockpit.receiveShadow = true;
     shipGroup.add(cockpit);
     
-    // Engine exhaust (smaller)
-    const engineGeometry = new THREE.CylinderGeometry(0.5, 0.8, 1.5, 16);
-    const engineMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x444444,
-        shininess: 50,
-        specular: 0x111111
+    // Dual engine exhausts
+    const engineGeometry = new THREE.CylinderGeometry(0.4, 0.6, 2, 12);
+    const engineMaterial = new THREE.MeshPhysicalMaterial({ 
+        color: 0x333333,
+        metalness: 1.0,
+        roughness: 0.3,
+        emissive: 0x001144,
+        emissiveIntensity: 0.8
     });
-    const engine = new THREE.Mesh(engineGeometry, engineMaterial);
-    engine.position.set(0, -3, 0);
-    shipGroup.add(engine);
+    
+    const leftEngine = new THREE.Mesh(engineGeometry, engineMaterial);
+    leftEngine.position.set(-1.5, -3.5, 0);
+    leftEngine.castShadow = true;
+    leftEngine.receiveShadow = true;
+    shipGroup.add(leftEngine);
+    
+    const rightEngine = new THREE.Mesh(engineGeometry, engineMaterial);
+    rightEngine.position.set(1.5, -3.5, 0);
+    rightEngine.castShadow = true;
+    rightEngine.receiveShadow = true;
+    shipGroup.add(rightEngine);
+    
+    // Engine glow effects
+    const engineGlowGeometry = new THREE.SphereGeometry(0.5, 12, 12);
+    const leftGlowMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00aaff,
+        transparent: true,
+        opacity: 0.8,
+        emissive: 0x0088ff,
+        emissiveIntensity: 1.5
+    });
+    const rightGlowMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00aaff,
+        transparent: true,
+        opacity: 0.8,
+        emissive: 0x0088ff,
+        emissiveIntensity: 1.5
+    });
+    
+    const leftGlow = new THREE.Mesh(engineGlowGeometry, leftGlowMaterial);
+    leftGlow.position.set(-1.5, -4.5, 0);
+    shipGroup.add(leftGlow);
+    
+    const rightGlow = new THREE.Mesh(engineGlowGeometry, rightGlowMaterial);
+    rightGlow.position.set(1.5, -4.5, 0);
+    shipGroup.add(rightGlow);
+    
+    // Add engine particle trails
+    const trailGeometry = new THREE.ConeGeometry(0.3, 1.5, 8);
+    const trailMaterial = new THREE.MeshBasicMaterial({
+        color: 0x0066ff,
+        transparent: true,
+        opacity: 0.6,
+        emissive: 0x0066ff,
+        emissiveIntensity: 1.0
+    });
+    
+    const leftTrail = new THREE.Mesh(trailGeometry, trailMaterial);
+    leftTrail.position.set(-1.5, -5.5, 0);
+    leftTrail.rotation.x = Math.PI;
+    shipGroup.add(leftTrail);
+    
+    const rightTrail = new THREE.Mesh(trailGeometry, trailMaterial);
+    rightTrail.position.set(1.5, -5.5, 0);
+    rightTrail.rotation.x = Math.PI;
+    shipGroup.add(rightTrail);
+    
+    // Add weapon hardpoints
+    const weaponGeometry = new THREE.BoxGeometry(0.3, 0.3, 1.5);
+    const weaponMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x444444,
+        metalness: 0.9,
+        roughness: 0.1,
+        emissive: 0x220000,
+        emissiveIntensity: 0.5
+    });
+    
+    const leftWeapon = new THREE.Mesh(weaponGeometry, weaponMaterial);
+    leftWeapon.position.set(-2.5, 1, 0);
+    leftWeapon.castShadow = true;
+    shipGroup.add(leftWeapon);
+    
+    const rightWeapon = new THREE.Mesh(weaponGeometry, weaponMaterial);
+    rightWeapon.position.set(2.5, 1, 0);
+    rightWeapon.castShadow = true;
+    shipGroup.add(rightWeapon);
+    
+    // Store components for animation
+    shipGroup.userData = { 
+        leftGlow, 
+        rightGlow, 
+        leftTrail, 
+        rightTrail,
+        leftTip,
+        rightTip,
+        cockpit
+    };
     
     ship = shipGroup;
     ship.position.y = -30; // Bottom of screen
     scene.add(ship);
 
-    // Create 5x3 grid of invaders - smaller and better positioned
+    // Create enhanced invaders with varied designs
     for (let row = 0; row < 3; row++) {
         for (let col = 0; col < 5; col++) {
-            // Create smaller invaders using sphere geometry with custom material
-            const invaderGeometry = new THREE.SphereGeometry(1.5, 16, 16); // Reduced from 3 to 1.5
-            const invaderMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0xffff00, // Yellow like Pac-Man
-                shininess: 50,
-                specular: 0x222222,
+            const invaderGroup = new THREE.Group();
+            
+            // Different invader types per row
+            if (row === 0) {
+                // Top row - Elite invaders (octahedron shape)
+                const invaderGeometry = new THREE.OctahedronGeometry(1.8, 1);
+                const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                    color: 0xff6600,
+                    metalness: 0.9,
+                    roughness: 0.1,
+                    emissive: 0x331100,
+                    emissiveIntensity: 0.8,
+                    transparent: true,
+                    opacity: 0.95
+                });
+                const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                invader.castShadow = true;
+                invader.receiveShadow = true;
+                invaderGroup.add(invader);
+                
+                // Add spinning rings
+                const ringGeometry = new THREE.RingGeometry(2, 2.5, 16);
+                const ringMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff3300,
+                    transparent: true,
+                    opacity: 0.6,
+                    emissive: 0xff3300,
+                    emissiveIntensity: 0.4,
+                    side: THREE.DoubleSide
+                });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.rotation.x = Math.PI / 2;
+                invaderGroup.add(ring);
+                invaderGroup.userData = { ring, type: 'elite' };
+                
+            } else if (row === 1) {
+                // Middle row - Standard invaders (icosahedron)
+                const invaderGeometry = new THREE.IcosahedronGeometry(1.6, 0);
+                const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                    color: 0xffff00,
+                    metalness: 0.6,
+                    roughness: 0.3,
+                    emissive: 0x444400,
+                    emissiveIntensity: 0.6,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                invader.castShadow = true;
+                invader.receiveShadow = true;
+                invaderGroup.add(invader);
+                invaderGroup.userData = { type: 'standard' };
+                
+            } else {
+                // Bottom row - Scout invaders (tetrahedron)
+                const invaderGeometry = new THREE.TetrahedronGeometry(1.4, 0);
+                const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                    color: 0x00ff88,
+                    metalness: 0.4,
+                    roughness: 0.4,
+                    emissive: 0x002244,
+                    emissiveIntensity: 0.4,
+                    transparent: true,
+                    opacity: 0.85
+                });
+                const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                invader.castShadow = true;
+                invader.receiveShadow = true;
+                invaderGroup.add(invader);
+                invaderGroup.userData = { type: 'scout' };
+            }
+            
+            // Add pulsing glow effect
+            const glowGeometry = new THREE.SphereGeometry(2.5, 16, 16);
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: invaderGroup.children[0].material.color,
                 transparent: true,
-                opacity: 0.9
+                opacity: 0.1,
+                side: THREE.BackSide
             });
-            const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
-            invader.position.set(col * 6 - 12, 30 - row * 6, 0); // Closer spacing and higher position
-            scene.add(invader);
-            invaders.push(invader);
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            invaderGroup.add(glow);
+            invaderGroup.userData.glow = glow;
+            
+            invaderGroup.position.set(col * 6 - 12, 30 - row * 6, 0);
+            scene.add(invaderGroup);
+            invaders.push(invaderGroup);
         }
     }
 
@@ -695,19 +1121,118 @@ function startAutoFire() {
     if (autoFireInterval) return;
     autoFireInterval = setInterval(() => {
         if (!gameOver && isTouching) {
-            // Create laser
-            const laserGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5, 32);
-            const laserMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0xff0000,
-                shininess: 200,
-                specular: 0xffffff,
-                emissive: 0x330000
+            // Create realistic missile projectile
+            const missileGroup = new THREE.Group();
+            
+            // Main missile body (cylindrical with pointed nose)
+            const bodyGeometry = new THREE.CylinderGeometry(0.2, 0.25, 2.5, 12);
+            const bodyMaterial = new THREE.MeshPhysicalMaterial({ 
+                color: 0x444444,
+                metalness: 0.8,
+                roughness: 0.3,
+                emissive: 0x220000,
+                emissiveIntensity: 0.3
             });
-            const laser = new THREE.Mesh(laserGeometry, laserMaterial);
-            laser.position.set(ship.position.x, ship.position.y + 3, 0);
-            laser.rotation.x = Math.PI / 2;
-            scene.add(laser);
-            projectiles.push(laser);
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.rotation.x = Math.PI / 2;
+            body.castShadow = true;
+            missileGroup.add(body);
+            
+            // Missile nose cone
+            const noseGeometry = new THREE.ConeGeometry(0.2, 0.8, 12);
+            const noseMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x666666,
+                metalness: 0.9,
+                roughness: 0.1,
+                emissive: 0x330000,
+                emissiveIntensity: 0.4
+            });
+            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+            nose.position.set(0, 1.65, 0);
+            nose.castShadow = true;
+            missileGroup.add(nose);
+            
+            // Missile fins
+            const finGeometry = new THREE.BoxGeometry(0.6, 0.05, 0.4);
+            const finMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x333333,
+                metalness: 0.7,
+                roughness: 0.4,
+                emissive: 0x110000,
+                emissiveIntensity: 0.2
+            });
+            
+            // Create 4 fins
+            for (let i = 0; i < 4; i++) {
+                const fin = new THREE.Mesh(finGeometry, finMaterial);
+                const angle = (i / 4) * Math.PI * 2;
+                fin.position.set(
+                    Math.cos(angle) * 0.3,
+                    -1,
+                    Math.sin(angle) * 0.3
+                );
+                fin.rotation.y = angle;
+                fin.castShadow = true;
+                missileGroup.add(fin);
+            }
+            
+            // Engine exhaust glow
+            const exhaustGeometry = new THREE.CylinderGeometry(0.15, 0.1, 0.3, 8);
+            const exhaustMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff4400,
+                transparent: true,
+                opacity: 0.8,
+                emissive: 0xff4400,
+                emissiveIntensity: 2.0
+            });
+            const exhaust = new THREE.Mesh(exhaustGeometry, exhaustMaterial);
+            exhaust.position.set(0, -1.4, 0);
+            exhaust.rotation.x = Math.PI / 2;
+            missileGroup.add(exhaust);
+            
+            // Smoke trail particles
+            const trailParticles = [];
+            for (let i = 0; i < 8; i++) {
+                const particleGeometry = new THREE.SphereGeometry(0.08 + i * 0.02, 6, 6);
+                const particleMaterial = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(0.1, 0.3, 0.6 - i * 0.06),
+                    transparent: true,
+                    opacity: 0.7 - i * 0.08,
+                    emissive: 0x442200,
+                    emissiveIntensity: 0.5 - i * 0.05
+                });
+                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+                particle.position.set(
+                    (Math.random() - 0.5) * 0.3,
+                    -1.5 - i * 0.3,
+                    (Math.random() - 0.5) * 0.3
+                );
+                trailParticles.push(particle);
+                missileGroup.add(particle);
+            }
+            
+            // Add targeting light
+            const targetLightGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+            const targetLightMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                emissive: 0x00ff00,
+                emissiveIntensity: 1.5
+            });
+            const targetLight = new THREE.Mesh(targetLightGeometry, targetLightMaterial);
+            targetLight.position.set(0, 0.5, 0);
+            missileGroup.add(targetLight);
+            
+            missileGroup.position.set(ship.position.x, ship.position.y + 3, 0);
+            missileGroup.userData = { 
+                type: 'player', 
+                trailParticles,
+                exhaust,
+                targetLight,
+                speed: 2.0,
+                spinSpeed: 0.05
+            };
+            scene.add(missileGroup);
+            projectiles.push(missileGroup);
             
             // Play shooting sound
             if (shootSound) {
@@ -897,19 +1422,118 @@ function animate() {
 
                 // Shoot on spacebar (limit firing rate)
         if (keys[' ']) {
-            // Create laser (cylinder)
-            const laserGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5, 32);
-            const laserMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0xff0000,
-                shininess: 200,
-                specular: 0xffffff,
-                emissive: 0x330000
-            }); // Red with glow effect
-            const laser = new THREE.Mesh(laserGeometry, laserMaterial);
-            laser.position.set(ship.position.x, ship.position.y + 3, 0); // Above ship (adjusted for smaller size)
-            laser.rotation.x = Math.PI / 2; // Rotate to vertical
-            scene.add(laser);
-            projectiles.push(laser);
+            // Create realistic missile projectile
+            const missileGroup = new THREE.Group();
+            
+            // Main missile body (cylindrical with pointed nose)
+            const bodyGeometry = new THREE.CylinderGeometry(0.2, 0.25, 2.5, 12);
+            const bodyMaterial = new THREE.MeshPhysicalMaterial({ 
+                color: 0x444444,
+                metalness: 0.8,
+                roughness: 0.3,
+                emissive: 0x220000,
+                emissiveIntensity: 0.3
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.rotation.x = Math.PI / 2;
+            body.castShadow = true;
+            missileGroup.add(body);
+            
+            // Missile nose cone
+            const noseGeometry = new THREE.ConeGeometry(0.2, 0.8, 12);
+            const noseMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x666666,
+                metalness: 0.9,
+                roughness: 0.1,
+                emissive: 0x330000,
+                emissiveIntensity: 0.4
+            });
+            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+            nose.position.set(0, 1.65, 0);
+            nose.castShadow = true;
+            missileGroup.add(nose);
+            
+            // Missile fins
+            const finGeometry = new THREE.BoxGeometry(0.6, 0.05, 0.4);
+            const finMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x333333,
+                metalness: 0.7,
+                roughness: 0.4,
+                emissive: 0x110000,
+                emissiveIntensity: 0.2
+            });
+            
+            // Create 4 fins
+            for (let i = 0; i < 4; i++) {
+                const fin = new THREE.Mesh(finGeometry, finMaterial);
+                const angle = (i / 4) * Math.PI * 2;
+                fin.position.set(
+                    Math.cos(angle) * 0.3,
+                    -1,
+                    Math.sin(angle) * 0.3
+                );
+                fin.rotation.y = angle;
+                fin.castShadow = true;
+                missileGroup.add(fin);
+            }
+            
+            // Engine exhaust glow
+            const exhaustGeometry = new THREE.CylinderGeometry(0.15, 0.1, 0.3, 8);
+            const exhaustMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff4400,
+                transparent: true,
+                opacity: 0.8,
+                emissive: 0xff4400,
+                emissiveIntensity: 2.0
+            });
+            const exhaust = new THREE.Mesh(exhaustGeometry, exhaustMaterial);
+            exhaust.position.set(0, -1.4, 0);
+            exhaust.rotation.x = Math.PI / 2;
+            missileGroup.add(exhaust);
+            
+            // Smoke trail particles
+            const trailParticles = [];
+            for (let i = 0; i < 8; i++) {
+                const particleGeometry = new THREE.SphereGeometry(0.08 + i * 0.02, 6, 6);
+                const particleMaterial = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(0.1, 0.3, 0.6 - i * 0.06),
+                    transparent: true,
+                    opacity: 0.7 - i * 0.08,
+                    emissive: 0x442200,
+                    emissiveIntensity: 0.5 - i * 0.05
+                });
+                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+                particle.position.set(
+                    (Math.random() - 0.5) * 0.3,
+                    -1.5 - i * 0.3,
+                    (Math.random() - 0.5) * 0.3
+                );
+                trailParticles.push(particle);
+                missileGroup.add(particle);
+            }
+            
+            // Add targeting light
+            const targetLightGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+            const targetLightMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                emissive: 0x00ff00,
+                emissiveIntensity: 1.5
+            });
+            const targetLight = new THREE.Mesh(targetLightGeometry, targetLightMaterial);
+            targetLight.position.set(0, 0.5, 0);
+            missileGroup.add(targetLight);
+            
+            missileGroup.position.set(ship.position.x, ship.position.y + 3, 0);
+            missileGroup.userData = { 
+                type: 'player', 
+                trailParticles,
+                exhaust,
+                targetLight,
+                speed: 2.0,
+                spinSpeed: 0.05
+            };
+            scene.add(missileGroup);
+            projectiles.push(missileGroup);
             
             // Play shooting sound
             if (shootSound) {
@@ -920,18 +1544,114 @@ function animate() {
         }
     }
 
-    // Move projectiles (player shots up, enemy shots down)
+    // Move projectiles with realistic physics and animations
     projectiles.forEach((proj, index) => {
         const dir = proj.direction || 1; // Player: 1 up, enemy: -1 down
-        proj.mesh ? proj.mesh.position.y += 1 * dir : proj.position.y += 1 * dir;
+        const time = Date.now() * 0.001;
         
-        // Remove off-screen projectiles
-        if (proj.mesh) { // Enemy projectile
+        if (proj.mesh) { // Enemy bomb projectile
+            const speed = proj.userData && proj.userData.speed ? proj.userData.speed : 1.5;
+            proj.mesh.position.y += speed * dir;
+            
+            // Animate enemy bomb effects
+            if (proj.mesh.userData) {
+                const userData = proj.mesh.userData;
+                
+                // Spin the bomb
+                proj.mesh.rotation.x += userData.spinSpeed || 0.02;
+                proj.mesh.rotation.z += userData.spinSpeed * 0.7 || 0.014;
+                
+                // Animate energy core pulsing
+                if (userData.core) {
+                    const pulse = 1 + Math.sin(time * 8) * 0.3;
+                    userData.core.scale.setScalar(pulse);
+                    userData.core.material.emissiveIntensity = 1.5 + Math.sin(time * 6) * 0.5;
+                }
+                
+                // Animate energy field
+                if (userData.field) {
+                    const fieldPulse = 1 + Math.sin(time * 4) * 0.2;
+                    userData.field.scale.setScalar(fieldPulse);
+                    userData.field.material.opacity = 0.2 + Math.sin(time * 5) * 0.1;
+                }
+                
+                // Animate orbiting sparks
+                if (userData.sparkParticles) {
+                    userData.sparkParticles.forEach((spark, sparkIndex) => {
+                        const angle = time * userData.sparkOrbitSpeed + (sparkIndex / userData.sparkParticles.length) * Math.PI * 2;
+                        const radius = userData.bombSize * 2;
+                        spark.position.x = Math.cos(angle) * radius;
+                        spark.position.y = Math.sin(angle) * radius;
+                        spark.material.emissiveIntensity = 1.2 + Math.sin(time * 10 + sparkIndex) * 0.3;
+                    });
+                }
+            }
+            
+            // Remove off-screen projectiles
             if (proj.mesh.position.y < -50) {
                 scene.remove(proj.mesh);
                 projectiles.splice(index, 1);
             }
-        } else { // Player projectile
+        } else { // Player missile projectile
+            const speed = proj.userData && proj.userData.speed ? proj.userData.speed : 2.0;
+            proj.position.y += speed * dir;
+            
+            // Animate player missile effects
+            if (proj.userData && proj.userData.type === 'player') {
+                const userData = proj.userData;
+                
+                // Spin the missile
+                proj.rotation.z += userData.spinSpeed || 0.05;
+                
+                // Animate engine exhaust
+                if (userData.exhaust) {
+                    const exhaustPulse = 1 + Math.sin(time * 15) * 0.4;
+                    userData.exhaust.scale.setScalar(exhaustPulse);
+                    userData.exhaust.material.emissiveIntensity = 2.0 + Math.sin(time * 12) * 0.8;
+                }
+                
+                // Animate targeting light
+                if (userData.targetLight) {
+                    userData.targetLight.material.emissiveIntensity = 1.5 + Math.sin(time * 8) * 0.5;
+                }
+                
+                // Animate smoke trail particles
+                if (userData.trailParticles) {
+                    userData.trailParticles.forEach((particle, particleIndex) => {
+                        // Create turbulence effect
+                        particle.position.x += (Math.random() - 0.5) * 0.02;
+                        particle.position.z += (Math.random() - 0.5) * 0.02;
+                        
+                        // Fade trail particles over time
+                        const fadeRate = 0.002;
+                        particle.material.opacity = Math.max(0, particle.material.opacity - fadeRate);
+                        particle.material.emissiveIntensity = Math.max(0, particle.material.emissiveIntensity - fadeRate);
+                        
+                        // Expand trail particles
+                        const expansion = 1 + particleIndex * 0.001;
+                        particle.scale.setScalar(expansion);
+                    });
+                }
+                
+                // Add slight homing effect (subtle course correction)
+                if (invaders.length > 0) {
+                    const nearestInvader = invaders.reduce((nearest, invader) => {
+                        const distToNearest = nearest ? 
+                            Math.abs(proj.position.x - nearest.position.x) + Math.abs(proj.position.y - nearest.position.y) :
+                            Infinity;
+                        const distToCurrent = Math.abs(proj.position.x - invader.position.x) + Math.abs(proj.position.y - invader.position.y);
+                        return distToCurrent < distToNearest ? invader : nearest;
+                    }, null);
+                    
+                    if (nearestInvader) {
+                        const dx = nearestInvader.position.x - proj.position.x;
+                        const homingStrength = 0.02;
+                        proj.position.x += dx * homingStrength;
+                    }
+                }
+            }
+            
+            // Remove off-screen projectiles
             if (proj.position.y > 50) {
                 scene.remove(proj);
                 projectiles.splice(index, 1);
@@ -947,32 +1667,118 @@ function animate() {
                 // Simple bounding box collision (check distance) - adjusted for smaller invaders
                 if (Math.abs(proj.position.x - inv.position.x) < 2 &&
                     Math.abs(proj.position.y - inv.position.y) < 2) {
+                    
+                    // Create explosion at invader position
+                    createExplosion(inv.position.x, inv.position.y, inv.position.z, 'bomb_impact');
+                    
                     scene.remove(proj);
                     scene.remove(inv);
                     projectiles.splice(pIndex, 1);
                     invaders.splice(iIndex, 1);
-                    score += 10;
+                    
+                    // Different points for different invader types
+                    let points = 10;
+                    if (inv.userData.type === 'elite') points = 30;
+                    else if (inv.userData.type === 'standard') points = 20;
+                    else if (inv.userData.type === 'scout') points = 10;
+                    
+                    score += points;
                     scoreElement.innerText = `Score: ${score}`;
                     
                     // Check if all invaders are gone
                     if (invaders.length === 0) {
                         wave++;
                         console.log('All invaders destroyed! Creating wave', wave);
-                        // Respawn faster invaders - smaller and better positioned
+                        
+                        // Create new enhanced wave
                         for (let row = 0; row < 3; row++) {
                             for (let col = 0; col < 5; col++) {
-                                const invaderGeometry = new THREE.SphereGeometry(1.5, 16, 16);
-                                const invaderMaterial = new THREE.MeshPhongMaterial({ 
-                                    color: 0xffff00,
-                                    shininess: 50,
-                                    specular: 0x222222,
+                                const invaderGroup = new THREE.Group();
+                                
+                                // Different invader types per row (same as initial creation)
+                                if (row === 0) {
+                                    // Elite invaders
+                                    const invaderGeometry = new THREE.OctahedronGeometry(1.8, 1);
+                                    const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                                        color: 0xff6600,
+                                        metalness: 0.9,
+                                        roughness: 0.1,
+                                        emissive: 0x331100,
+                                        emissiveIntensity: 0.8,
+                                        transparent: true,
+                                        opacity: 0.95
+                                    });
+                                    const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                                    invader.castShadow = true;
+                                    invader.receiveShadow = true;
+                                    invaderGroup.add(invader);
+                                    
+                                    const ringGeometry = new THREE.RingGeometry(2, 2.5, 16);
+                                    const ringMaterial = new THREE.MeshBasicMaterial({
+                                        color: 0xff3300,
+                                        transparent: true,
+                                        opacity: 0.6,
+                                        emissive: 0xff3300,
+                                        emissiveIntensity: 0.4,
+                                        side: THREE.DoubleSide
+                                    });
+                                    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                                    ring.rotation.x = Math.PI / 2;
+                                    invaderGroup.add(ring);
+                                    invaderGroup.userData = { ring, type: 'elite' };
+                                    
+                                } else if (row === 1) {
+                                    // Standard invaders
+                                    const invaderGeometry = new THREE.IcosahedronGeometry(1.6, 0);
+                                    const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                                        color: 0xffff00,
+                                        metalness: 0.6,
+                                        roughness: 0.3,
+                                        emissive: 0x444400,
+                                        emissiveIntensity: 0.6,
+                                        transparent: true,
+                                        opacity: 0.9
+                                    });
+                                    const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                                    invader.castShadow = true;
+                                    invader.receiveShadow = true;
+                                    invaderGroup.add(invader);
+                                    invaderGroup.userData = { type: 'standard' };
+                                    
+                                } else {
+                                    // Scout invaders
+                                    const invaderGeometry = new THREE.TetrahedronGeometry(1.4, 0);
+                                    const invaderMaterial = new THREE.MeshPhysicalMaterial({ 
+                                        color: 0x00ff88,
+                                        metalness: 0.4,
+                                        roughness: 0.4,
+                                        emissive: 0x002244,
+                                        emissiveIntensity: 0.4,
+                                        transparent: true,
+                                        opacity: 0.85
+                                    });
+                                    const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
+                                    invader.castShadow = true;
+                                    invader.receiveShadow = true;
+                                    invaderGroup.add(invader);
+                                    invaderGroup.userData = { type: 'scout' };
+                                }
+                                
+                                // Add glow effect
+                                const glowGeometry = new THREE.SphereGeometry(2.5, 16, 16);
+                                const glowMaterial = new THREE.MeshBasicMaterial({
+                                    color: invaderGroup.children[0].material.color,
                                     transparent: true,
-                                    opacity: 0.9
+                                    opacity: 0.1,
+                                    side: THREE.BackSide
                                 });
-                                const invader = new THREE.Mesh(invaderGeometry, invaderMaterial);
-                                invader.position.set(col * 6 - 12, 30 - row * 6, 0);
-                                scene.add(invader);
-                                invaders.push(invader);
+                                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                                invaderGroup.add(glow);
+                                invaderGroup.userData.glow = glow;
+                                
+                                invaderGroup.position.set(col * 6 - 12, 30 - row * 6, 0);
+                                scene.add(invaderGroup);
+                                invaders.push(invaderGroup);
                             }
                         }
                         console.log('Created', invaders.length, 'new invaders for wave', wave);
@@ -981,12 +1787,12 @@ function animate() {
                 }
             }
         } else { // Enemy projectile hitting player
-            if (proj.mesh && !gameOver) {
+                            if (proj.mesh && !gameOver) {
                 const shipPos = ship.position;
                 if (Math.abs(proj.mesh.position.x - shipPos.x) < 2.5 &&
                     Math.abs(proj.mesh.position.y - shipPos.y) < 2.5) {
-                    // Player hit!
-                    createExplosion(ship.position.x, ship.position.y, ship.position.z);
+                    // Player hit by bomb!
+                    createExplosion(ship.position.x, ship.position.y, ship.position.z, 'bomb_ship');
                     scene.remove(proj.mesh);
                     projectiles.splice(pIndex, 1);
                     gameOver = true;
@@ -1092,18 +1898,57 @@ function animate() {
         }
     });
 
-    // Move invaders down slowly with enhanced 3D effects
-    invaders.forEach(inv => {
-        inv.position.y -= 0.05 * wave; // Adjust speed based on wave
-        inv.rotation.y += 0.01; // Rotate for 3D effect
-        inv.rotation.x += 0.005; // Additional rotation for more dynamic movement
-        inv.scale.setScalar(1 + Math.sin(Date.now() * 0.003) * 0.1); // Pulsing effect
+    // Enhanced invader animations with type-specific effects
+    invaders.forEach((inv, index) => {
+        const time = Date.now() * 0.001;
+        
+        // Basic movement
+        inv.position.y -= 0.05 * wave;
+        
+        // Type-specific animations
+        if (inv.userData.type === 'elite') {
+            // Elite invaders: Complex rotation and ring spinning
+            inv.children[0].rotation.y += 0.02;
+            inv.children[0].rotation.x += 0.01;
+            if (inv.userData.ring) {
+                inv.userData.ring.rotation.z += 0.05;
+                inv.userData.ring.material.emissiveIntensity = 0.4 + Math.sin(time * 4) * 0.2;
+            }
+            inv.children[0].scale.setScalar(1 + Math.sin(time * 3 + index * 0.5) * 0.15);
+        } else if (inv.userData.type === 'standard') {
+            // Standard invaders: Steady rotation with pulsing
+            inv.children[0].rotation.y += 0.015;
+            inv.children[0].rotation.z += 0.008;
+            inv.children[0].scale.setScalar(1 + Math.sin(time * 2 + index * 0.3) * 0.1);
+        } else {
+            // Scout invaders: Fast, erratic movement
+            inv.children[0].rotation.x += 0.025;
+            inv.children[0].rotation.y += 0.02;
+            inv.children[0].rotation.z += 0.015;
+            inv.children[0].scale.setScalar(1 + Math.sin(time * 5 + index * 0.7) * 0.08);
+            
+            // Add slight horizontal wobble
+            inv.position.x += Math.sin(time * 3 + index) * 0.02;
+        }
+        
+        // Animate glow effect
+        if (inv.userData.glow) {
+            inv.userData.glow.material.opacity = 0.1 + Math.sin(time * 2 + index * 0.2) * 0.05;
+            inv.userData.glow.scale.setScalar(1 + Math.sin(time * 1.5 + index * 0.1) * 0.1);
+        }
+        
+        // Animate material emissive intensity
+        if (inv.children[0].material.emissiveIntensity !== undefined) {
+            const baseIntensity = inv.userData.type === 'elite' ? 0.8 : 
+                                 inv.userData.type === 'standard' ? 0.6 : 0.4;
+            inv.children[0].material.emissiveIntensity = baseIntensity + Math.sin(time * 2 + index * 0.3) * 0.2;
+        }
     });
 
-    // Animate stars with slower movement and dramatic trails
+    // Animate stars with enhanced effects
     stars.forEach(starGroup => {
         // Slower, more graceful movement
-        starGroup.position.z += 1.2; // Slower movement towards camera
+        starGroup.position.z += 1.2;
         
         // Dynamic scaling for perspective effect
         const scale = 1 + (starGroup.position.z + 200) * 0.003;
@@ -1112,39 +1957,247 @@ function animate() {
         // Gentle rotation for dynamic effect
         starGroup.rotation.z += 0.01;
         
+        // Animate star brightness
+        const time = Date.now() * 0.001;
+        const brightness = 0.8 + Math.sin(time * 2 + starGroup.position.x * 0.1) * 0.2;
+        starGroup.children[0].material.emissiveIntensity = brightness;
+        
         // Reset star when it passes the camera
         if (starGroup.position.z > 100) {
-            starGroup.position.z = -200; // Move back to far distance
-            starGroup.position.x = Math.random() * 200 - 100; // Random X position
-            starGroup.position.y = Math.random() * 200 - 100; // Random Y position
-            starGroup.scale.setScalar(0.5); // Reset size
-            starGroup.rotation.z = 0; // Reset rotation
+            starGroup.position.z = -300;
+            starGroup.position.x = Math.random() * 300 - 150;
+            starGroup.position.y = Math.random() * 300 - 150;
+            starGroup.scale.setScalar(0.5);
+            starGroup.rotation.z = 0;
         }
     });
+    
+    // Animate dynamic lighting
+    if (window.gameData) {
+        const time = Date.now() * 0.001;
+        
+        // Pulsing player light
+        window.gameData.playerLight.intensity = 2 + Math.sin(time * 3) * 0.5;
+        window.gameData.playerLight.position.x = ship.position.x;
+        
+        // Pulsing enemy light
+        window.gameData.enemyLight.intensity = 1.5 + Math.sin(time * 2) * 0.3;
+        
+        // Rotating accent light
+        window.gameData.accentLight.position.x = Math.cos(time * 0.5) * 30;
+        window.gameData.accentLight.position.z = Math.sin(time * 0.5) * 20 + 20;
+        window.gameData.accentLight.intensity = 1 + Math.sin(time * 4) * 0.3;
+    }
+    
+    // Animate enhanced spaceship effects
+    if (ship.userData) {
+        const time = Date.now() * 0.001;
+        
+        // Animate dual engine glows
+        if (ship.userData.leftGlow && ship.userData.rightGlow) {
+            const intensity = 1.5 + Math.sin(time * 10) * 0.4;
+            ship.userData.leftGlow.material.emissiveIntensity = intensity;
+            ship.userData.rightGlow.material.emissiveIntensity = intensity;
+            
+            const scale = 1 + Math.sin(time * 8) * 0.15;
+            ship.userData.leftGlow.scale.setScalar(scale);
+            ship.userData.rightGlow.scale.setScalar(scale);
+        }
+        
+        // Animate engine trails
+        if (ship.userData.leftTrail && ship.userData.rightTrail) {
+            const trailIntensity = 1.0 + Math.sin(time * 12) * 0.3;
+            ship.userData.leftTrail.material.emissiveIntensity = trailIntensity;
+            ship.userData.rightTrail.material.emissiveIntensity = trailIntensity;
+            
+            const trailScale = 1 + Math.sin(time * 15) * 0.1;
+            ship.userData.leftTrail.scale.setScalar(trailScale);
+            ship.userData.rightTrail.scale.setScalar(trailScale);
+        }
+        
+        // Animate wing tip lights (navigation lights)
+        if (ship.userData.leftTip && ship.userData.rightTip) {
+            const leftIntensity = 1.0 + Math.sin(time * 4) * 0.5;
+            const rightIntensity = 1.0 + Math.sin(time * 4 + Math.PI) * 0.5;
+            ship.userData.leftTip.material.emissiveIntensity = leftIntensity;
+            ship.userData.rightTip.material.emissiveIntensity = rightIntensity;
+        }
+        
+        // Animate cockpit glow
+        if (ship.userData.cockpit) {
+            const cockpitIntensity = 0.7 + Math.sin(time * 3) * 0.2;
+            ship.userData.cockpit.material.emissiveIntensity = cockpitIntensity;
+        }
+    }
 
-    // Enemy shooting
-    if (Math.random() < 0.01) { // 1% chance per frame
+    // Enhanced enemy bombing system
+    if (Math.random() < 0.012) { // Slightly increased chance
         const randomInv = invaders[Math.floor(Math.random() * invaders.length)];
         if (randomInv) {
-            const enemyLaser = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 5, 32), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
-            enemyLaser.position.set(randomInv.position.x, randomInv.position.y - 5, 0);
-            enemyLaser.rotation.x = Math.PI / 2;
-            scene.add(enemyLaser);
-            projectiles.push({ mesh: enemyLaser, direction: -1 }); // Tag direction down
+            const enemyBombGroup = new THREE.Group();
+            
+            // Different bomb types based on invader type
+            let bombColor, glowColor, emissiveColor, bombSize;
+            if (randomInv.userData.type === 'elite') {
+                bombColor = 0x660000;
+                glowColor = 0xff3300;
+                emissiveColor = 0xff3300;
+                bombSize = 0.4;
+            } else if (randomInv.userData.type === 'standard') {
+                bombColor = 0x004466;
+                glowColor = 0x00aaff;
+                emissiveColor = 0x00ffff;
+                bombSize = 0.3;
+            } else {
+                bombColor = 0x004400;
+                glowColor = 0x00ff88;
+                emissiveColor = 0x00ff88;
+                bombSize = 0.25;
+            }
+            
+            // Main bomb body (spherical with metallic surface)
+            const bombGeometry = new THREE.SphereGeometry(bombSize, 16, 16);
+            const bombMaterial = new THREE.MeshPhysicalMaterial({
+                color: bombColor,
+                metalness: 0.9,
+                roughness: 0.2,
+                emissive: emissiveColor,
+                emissiveIntensity: 0.8,
+                transparent: true,
+                opacity: 0.95
+            });
+            const bomb = new THREE.Mesh(bombGeometry, bombMaterial);
+            bomb.castShadow = true;
+            enemyBombGroup.add(bomb);
+            
+            // Add bomb fins/stabilizers
+            const finGeometry = new THREE.BoxGeometry(bombSize * 1.5, 0.05, bombSize * 0.8);
+            const finMaterial = new THREE.MeshPhysicalMaterial({
+                color: bombColor,
+                metalness: 0.8,
+                roughness: 0.3,
+                emissive: emissiveColor,
+                emissiveIntensity: 0.4
+            });
+            
+            // Create cross-shaped fins
+            for (let i = 0; i < 2; i++) {
+                const fin = new THREE.Mesh(finGeometry, finMaterial);
+                fin.rotation.z = (i * Math.PI) / 2;
+                fin.position.y = -bombSize * 0.5;
+                fin.castShadow = true;
+                enemyBombGroup.add(fin);
+            }
+            
+            // Energy core glow
+            const coreGeometry = new THREE.SphereGeometry(bombSize * 0.6, 12, 12);
+            const coreMaterial = new THREE.MeshBasicMaterial({
+                color: glowColor,
+                transparent: true,
+                opacity: 0.6,
+                emissive: emissiveColor,
+                emissiveIntensity: 1.5
+            });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            enemyBombGroup.add(core);
+            
+            // Outer energy field
+            const fieldGeometry = new THREE.SphereGeometry(bombSize * 1.8, 16, 16);
+            const fieldMaterial = new THREE.MeshBasicMaterial({
+                color: glowColor,
+                transparent: true,
+                opacity: 0.2,
+                emissive: emissiveColor,
+                emissiveIntensity: 0.8,
+                side: THREE.BackSide
+            });
+            const field = new THREE.Mesh(fieldGeometry, fieldMaterial);
+            enemyBombGroup.add(field);
+            
+            // Add energy sparks around the bomb
+            const sparkParticles = [];
+            for (let i = 0; i < 6; i++) {
+                const sparkGeometry = new THREE.SphereGeometry(0.05, 6, 6);
+                const sparkMaterial = new THREE.MeshBasicMaterial({
+                    color: glowColor,
+                    transparent: true,
+                    opacity: 0.9,
+                    emissive: emissiveColor,
+                    emissiveIntensity: 1.2
+                });
+                const spark = new THREE.Mesh(sparkGeometry, sparkMaterial);
+                const angle = (i / 6) * Math.PI * 2;
+                spark.position.set(
+                    Math.cos(angle) * bombSize * 2,
+                    Math.sin(angle) * bombSize * 2,
+                    (Math.random() - 0.5) * bombSize
+                );
+                sparkParticles.push(spark);
+                enemyBombGroup.add(spark);
+            }
+            
+            enemyBombGroup.position.set(randomInv.position.x, randomInv.position.y - 5, 0);
+            enemyBombGroup.userData = { 
+                type: 'enemy',
+                core,
+                field,
+                sparkParticles,
+                bombSize,
+                spinSpeed: 0.02,
+                sparkOrbitSpeed: 0.05
+            };
+            scene.add(enemyBombGroup);
+            projectiles.push({ mesh: enemyBombGroup, direction: -1 });
         }
     }
     
-    // Animate explosions
+    // Enhanced explosion animations
     for (let i = explosions.length - 1; i >= 0; i--) {
         const group = explosions[i];
         group.userData.life += 1;
-        group.children.forEach(particle => {
-            particle.position.x += particle.userData.vx;
-            particle.position.y += particle.userData.vy;
-            particle.position.z += particle.userData.vz;
-            particle.material.opacity -= particle.userData.decay;
+        
+        group.children.forEach((particle, index) => {
+            // Check if it's the shockwave ring (usually the last child)
+            if (particle.userData.expansionSpeed) {
+                // Animate shockwave ring
+                const currentScale = particle.scale.x;
+                if (currentScale < particle.userData.maxScale) {
+                    particle.scale.setScalar(currentScale + particle.userData.expansionSpeed);
+                }
+                particle.material.opacity -= particle.userData.decay;
+                particle.rotation.z += 0.1;
+            } else {
+                // Animate regular particles
+                particle.position.x += particle.userData.vx;
+                particle.position.y += particle.userData.vy;
+                particle.position.z += particle.userData.vz;
+                
+                // Add rotation
+                if (particle.userData.rotationSpeed) {
+                    particle.rotation.x += particle.userData.rotationSpeed;
+                    particle.rotation.y += particle.userData.rotationSpeed * 0.7;
+                    particle.rotation.z += particle.userData.rotationSpeed * 0.5;
+                }
+                
+                // Fade out
+                particle.material.opacity -= particle.userData.decay;
+                
+                // Gradually reduce emissive intensity
+                if (particle.material.emissiveIntensity > 0) {
+                    particle.material.emissiveIntensity -= particle.userData.decay * 0.5;
+                }
+                
+                // Add gravity effect to particles
+                particle.userData.vy -= 0.02;
+                
+                // Scale down over time
+                const scaleReduction = particle.userData.decay * 0.3;
+                particle.scale.multiplyScalar(1 - scaleReduction);
+            }
         });
-        if (group.userData.life > 30) {
+        
+        // Remove explosion when particles are too faded or too old
+        if (group.userData.life > 60 || group.children.every(p => p.material.opacity <= 0)) {
             scene.remove(group);
             explosions.splice(i, 1);
         }
@@ -1153,30 +2206,182 @@ function animate() {
     renderer.render(scene, camera); // Draw the scene
 }
 
-// Explosion effect
-function createExplosion(x, y, z) {
+// Enhanced explosion effect with bomb-specific impacts
+function createExplosion(x, y, z, type = 'default') {
     const explosionGroup = new THREE.Group();
-    const particleCount = 40;
-    for (let i = 0; i < particleCount; i++) {
-        const geometry = new THREE.SphereGeometry(0.5 + Math.random() * 0.7, 8, 8);
-        const color = new THREE.Color(`hsl(${Math.floor(Math.random()*40)}, 100%, 50%)`);
-        const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+    
+    // Determine explosion characteristics based on type
+    let mainParticleCount, sparkCount, shockwaveColor, particleColors, intensity;
+    
+    if (type === 'bomb_impact') {
+        // Missile hitting invader - more intense, metallic debris
+        mainParticleCount = 50;
+        sparkCount = 30;
+        shockwaveColor = 0xff6600;
+        particleColors = {
+            hueRange: [15, 45], // Orange to yellow
+            saturation: 90,
+            lightness: [40, 70]
+        };
+        intensity = 1.2;
+    } else if (type === 'bomb_ship') {
+        // Bomb hitting player ship - massive explosion
+        mainParticleCount = 80;
+        sparkCount = 40;
+        shockwaveColor = 0xff2200;
+        particleColors = {
+            hueRange: [0, 30], // Red to orange
+            saturation: 100,
+            lightness: [50, 80]
+        };
+        intensity = 1.5;
+    } else {
+        // Default explosion
+        mainParticleCount = 40;
+        sparkCount = 20;
+        shockwaveColor = 0xffff00;
+        particleColors = {
+            hueRange: [20, 60],
+            saturation: 80,
+            lightness: [50, 70]
+        };
+        intensity = 1.0;
+    }
+    
+    // Main explosion particles (debris and fire)
+    for (let i = 0; i < mainParticleCount; i++) {
+        const geometry = new THREE.SphereGeometry(0.2 + Math.random() * 0.6, 8, 8);
+        const hue = particleColors.hueRange[0] + Math.random() * (particleColors.hueRange[1] - particleColors.hueRange[0]);
+        const sat = particleColors.saturation;
+        const light = particleColors.lightness[0] + Math.random() * (particleColors.lightness[1] - particleColors.lightness[0]);
+        const color = new THREE.Color(`hsl(${hue}, ${sat}%, ${light}%)`);
+        
+        const material = new THREE.MeshBasicMaterial({ 
+            color, 
+            transparent: true, 
+            opacity: 1,
+            emissive: color,
+            emissiveIntensity: 0.8 * intensity
+        });
         const particle = new THREE.Mesh(geometry, material);
-        // Random direction
+        
+        // More realistic explosion physics
         const theta = Math.random() * 2 * Math.PI;
         const phi = Math.random() * Math.PI;
-        const speed = 2 + Math.random() * 3;
+        const speed = (2 + Math.random() * 4) * intensity;
         particle.userData = {
             vx: Math.sin(phi) * Math.cos(theta) * speed,
             vy: Math.sin(phi) * Math.sin(theta) * speed,
             vz: Math.cos(phi) * speed,
-            decay: 0.02 + Math.random() * 0.02
+            decay: 0.012 + Math.random() * 0.018,
+            rotationSpeed: (Math.random() - 0.5) * 0.3 * intensity,
+            initialSize: particle.scale.x
         };
         particle.position.set(x, y, z);
         explosionGroup.add(particle);
     }
+    
+    // Metal debris particles (for bomb impacts)
+    if (type.includes('bomb')) {
+        for (let i = 0; i < 15; i++) {
+            const debrisGeometry = new THREE.BoxGeometry(
+                0.1 + Math.random() * 0.3,
+                0.1 + Math.random() * 0.3,
+                0.1 + Math.random() * 0.3
+            );
+            const debrisMaterial = new THREE.MeshBasicMaterial({
+                color: 0x666666,
+                transparent: true,
+                opacity: 1,
+                emissive: 0x333333,
+                emissiveIntensity: 0.5
+            });
+            const debris = new THREE.Mesh(debrisGeometry, debrisMaterial);
+            
+            const theta = Math.random() * 2 * Math.PI;
+            const phi = Math.random() * Math.PI;
+            const speed = (1 + Math.random() * 3) * intensity;
+            debris.userData = {
+                vx: Math.sin(phi) * Math.cos(theta) * speed,
+                vy: Math.sin(phi) * Math.sin(theta) * speed,
+                vz: Math.cos(phi) * speed,
+                decay: 0.008 + Math.random() * 0.012,
+                rotationSpeed: (Math.random() - 0.5) * 0.4
+            };
+            debris.position.set(x, y, z);
+            explosionGroup.add(debris);
+        }
+    }
+    
+    // Bright spark particles
+    for (let i = 0; i < sparkCount; i++) {
+        const geometry = new THREE.SphereGeometry(0.08 + Math.random() * 0.12, 6, 6);
+        const color = new THREE.Color(0xffffff);
+        const material = new THREE.MeshBasicMaterial({ 
+            color, 
+            transparent: true, 
+            opacity: 1,
+            emissive: color,
+            emissiveIntensity: 1.5 * intensity
+        });
+        const spark = new THREE.Mesh(geometry, material);
+        
+        const theta = Math.random() * 2 * Math.PI;
+        const phi = Math.random() * Math.PI;
+        const speed = (4 + Math.random() * 5) * intensity;
+        spark.userData = {
+            vx: Math.sin(phi) * Math.cos(theta) * speed,
+            vy: Math.sin(phi) * Math.sin(theta) * speed,
+            vz: Math.cos(phi) * speed,
+            decay: 0.04 + Math.random() * 0.03,
+            rotationSpeed: (Math.random() - 0.5) * 0.5
+        };
+        spark.position.set(x, y, z);
+        explosionGroup.add(spark);
+    }
+    
+    // Enhanced shockwave ring
+    const ringGeometry = new THREE.RingGeometry(0.2, 0.8, 24);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+        color: shockwaveColor,
+        transparent: true,
+        opacity: 0.9,
+        emissive: shockwaveColor,
+        emissiveIntensity: 1.5 * intensity,
+        side: THREE.DoubleSide
+    });
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.position.set(x, y, z);
+    ring.userData = {
+        expansionSpeed: 0.4 * intensity,
+        decay: 0.04,
+        maxScale: 12 * intensity
+    };
+    explosionGroup.add(ring);
+    
+    // Add secondary shockwave for bomb impacts
+    if (type.includes('bomb')) {
+        const secondaryRingGeometry = new THREE.RingGeometry(0.1, 0.4, 16);
+        const secondaryRingMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.6,
+            emissive: 0xffffff,
+            emissiveIntensity: 2.0,
+            side: THREE.DoubleSide
+        });
+        const secondaryRing = new THREE.Mesh(secondaryRingGeometry, secondaryRingMaterial);
+        secondaryRing.position.set(x, y, z);
+        secondaryRing.userData = {
+            expansionSpeed: 0.6 * intensity,
+            decay: 0.06,
+            maxScale: 8 * intensity
+        };
+        explosionGroup.add(secondaryRing);
+    }
+    
     scene.add(explosionGroup);
-    explosionGroup.userData = { life: 0 };
+    explosionGroup.userData = { life: 0, type };
     explosions.push(explosionGroup);
 }
 
