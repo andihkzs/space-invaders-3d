@@ -235,6 +235,12 @@ let wave = 1;
 let highScore = localStorage.getItem('spaceInvadersHighScore') || 0;
 let stars = []; // Array for star animation
 
+// SpaceX rocket variables
+let spaceXRockets = []; // Array for SpaceX rockets
+let rocketSpawnTimer = 0;
+let rocketSpawnInterval = 300; // Frames between potential spawns
+let rocketSpawnChance = 0.02; // 2% chance per check
+
 // Touch control variables
 let isTouching = false;
 let touchStartX = 0;
@@ -395,6 +401,26 @@ function resetGame() {
         });
     });
     explosions = [];
+    
+    // Clear all SpaceX rockets
+    spaceXRockets.forEach(rocket => {
+        scene.remove(rocket);
+        rocket.children.forEach(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(mat => mat.dispose());
+                } else {
+                    child.material.dispose();
+                }
+            }
+        });
+    });
+    spaceXRockets = [];
+    
+    // Reset SpaceX rocket timers
+    rocketSpawnTimer = 0;
+    rocketSpawnInterval = 300;
     
     // Reset game state
     score = 0;
@@ -561,36 +587,79 @@ function init() {
     // Initialize audio
     initAudio();
     
-    // Create scene with enhanced space background
+    // Create scene with realistic space background
     scene = new THREE.Scene();
     
-    // Create nebula background with gradient
+    // Create realistic starfield background
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
+    canvas.width = 2048;
+    canvas.height = 2048;
     const context = canvas.getContext('2d');
     
-    // Create radial gradient for nebula effect
-    const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
-    gradient.addColorStop(0, 'rgba(20, 20, 80, 0.8)');
-    gradient.addColorStop(0.3, 'rgba(40, 20, 60, 0.6)');
-    gradient.addColorStop(0.6, 'rgba(60, 40, 80, 0.4)');
-    gradient.addColorStop(1, 'rgba(0, 0, 20, 0.2)');
+    // Deep space black background
+    context.fillStyle = '#000011';
+    context.fillRect(0, 0, 2048, 2048);
     
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 512, 512);
+    // Add realistic stars with varying brightness and colors
+    for (let i = 0; i < 3000; i++) {
+        const x = Math.random() * 2048;
+        const y = Math.random() * 2048;
+        const brightness = Math.random();
+        const size = brightness * 3 + 0.5;
+        
+        // Different star colors based on temperature
+        let color;
+        const temp = Math.random();
+        if (temp < 0.3) {
+            color = `rgba(255, ${200 + Math.random() * 55}, ${150 + Math.random() * 50}, ${brightness})`;
+        } else if (temp < 0.6) {
+            color = `rgba(255, 255, ${200 + Math.random() * 55}, ${brightness})`;
+        } else if (temp < 0.9) {
+            color = `rgba(${200 + Math.random() * 55}, ${220 + Math.random() * 35}, 255, ${brightness})`;
+        } else {
+            color = `rgba(${150 + Math.random() * 50}, ${150 + Math.random() * 50}, 255, ${brightness})`;
+        }
+        
+        context.fillStyle = color;
+        context.beginPath();
+        context.arc(x, y, size, 0, Math.PI * 2);
+        context.fill();
+        
+        // Add twinkle effect for brighter stars
+        if (brightness > 0.8) {
+            context.fillStyle = `rgba(255, 255, 255, ${brightness * 0.3})`;
+            context.beginPath();
+            context.arc(x, y, size * 2, 0, Math.PI * 2);
+            context.fill();
+        }
+    }
     
-    // Add some random nebula clouds
-    for (let i = 0; i < 20; i++) {
-        const x = Math.random() * 512;
-        const y = Math.random() * 512;
-        const radius = 20 + Math.random() * 40;
+    // Add distant nebula clouds
+    for (let i = 0; i < 8; i++) {
+        const x = Math.random() * 2048;
+        const y = Math.random() * 2048;
+        const radius = 100 + Math.random() * 200;
         const nebulaGradient = context.createRadialGradient(x, y, 0, x, y, radius);
-        nebulaGradient.addColorStop(0, `rgba(${100 + Math.random() * 100}, ${50 + Math.random() * 50}, ${150 + Math.random() * 100}, 0.3)`);
+        
+        const hue = Math.random() * 360;
+        nebulaGradient.addColorStop(0, `hsla(${hue}, 60%, 30%, 0.1)`);
+        nebulaGradient.addColorStop(0.5, `hsla(${hue}, 70%, 20%, 0.05)`);
         nebulaGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
         context.fillStyle = nebulaGradient;
         context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
     }
+    
+    // Add the Milky Way band
+    const milkyWayGradient = context.createLinearGradient(0, 1024, 2048, 1024);
+    milkyWayGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    milkyWayGradient.addColorStop(0.3, 'rgba(100, 80, 120, 0.1)');
+    milkyWayGradient.addColorStop(0.5, 'rgba(150, 120, 180, 0.15)');
+    milkyWayGradient.addColorStop(0.7, 'rgba(100, 80, 120, 0.1)');
+    milkyWayGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    
+    context.fillStyle = milkyWayGradient;
+    context.fillRect(0, 800, 2048, 448);
     
     const texture = new THREE.CanvasTexture(canvas);
     scene.background = texture;
@@ -1793,6 +1862,60 @@ function animate() {
                     break; // Exit the loop after hitting one invader
                 }
             }
+            
+            // Check collision with SpaceX rockets
+            for (let rIndex = spaceXRockets.length - 1; rIndex >= 0; rIndex--) {
+                const rocket = spaceXRockets[rIndex];
+                if (rocket.userData.destroyed) continue;
+                
+                // Check collision with rocket (larger hitbox due to rocket size)
+                if (Math.abs(proj.position.x - rocket.position.x) < 4 &&
+                    Math.abs(proj.position.y - rocket.position.y) < 8) {
+                    
+                    // Hit the rocket!
+                    rocket.userData.hitCount++;
+                    console.log(`SpaceX rocket hit! (${rocket.userData.hitCount}/${rocket.userData.maxHits})`);
+                    
+                    // Create small hit explosion
+                    createExplosion(proj.position.x, proj.position.y, proj.position.z, 'rocket_hit');
+                    
+                    // Remove projectile
+                    scene.remove(proj);
+                    projectiles.splice(pIndex, 1);
+                    
+                    // Check if rocket is destroyed
+                    if (rocket.userData.hitCount >= rocket.userData.maxHits) {
+                        // Rocket destroyed! Give bonus points
+                        score += 100;
+                        scoreElement.innerText = `Score: ${score}`;
+                        
+                        // Create big explosion
+                        createExplosion(rocket.position.x, rocket.position.y, rocket.position.z, 'rocket_destroyed');
+                        
+                        // Mark as destroyed and remove after a delay
+                        rocket.userData.destroyed = true;
+                        setTimeout(() => {
+                            scene.remove(rocket);
+                            const index = spaceXRockets.indexOf(rocket);
+                            if (index > -1) {
+                                spaceXRockets.splice(index, 1);
+                            }
+                        }, 1000);
+                        
+                        console.log('SpaceX rocket destroyed! +100 points');
+                    } else {
+                        // Just hit, add some damage effect
+                        rocket.children[0].material.emissiveIntensity = 1.0; // Flash the body
+                        setTimeout(() => {
+                            if (rocket.children[0].material) {
+                                rocket.children[0].material.emissiveIntensity = 0.3;
+                            }
+                        }, 200);
+                    }
+                    
+                    break; // Exit the loop after hitting rocket
+                }
+            }
         } else { // Enemy projectile hitting player
                             if (proj.mesh && !gameOver) {
                 const shipPos = ship.position;
@@ -2037,6 +2160,43 @@ function animate() {
         }
     }
 
+    // SpaceX rocket spawning system
+    rocketSpawnTimer++;
+    if (rocketSpawnTimer >= rocketSpawnInterval && Math.random() < rocketSpawnChance && !gameOver) {
+        createSpaceXRocket();
+        rocketSpawnTimer = 0;
+        // Reset spawn interval with some randomness
+        rocketSpawnInterval = 200 + Math.random() * 400;
+    }
+    
+    // Update SpaceX rockets
+    spaceXRockets.forEach((rocket, index) => {
+        if (rocket.userData.destroyed) return;
+        
+        // Move rocket horizontally
+        rocket.position.x += rocket.userData.direction * rocket.userData.speed;
+        
+        // Add slight vertical bobbing
+        const time = Date.now() * 0.001;
+        rocket.position.y = rocket.userData.baseY + Math.sin(time * 2 + index) * 0.5;
+        
+        // Animate engine flames
+        rocket.children.forEach((child, childIndex) => {
+            if (childIndex >= 3 && childIndex < 12) { // Engine flames
+                const flamePulse = 1 + Math.sin(time * 10 + childIndex) * 0.3;
+                child.scale.setScalar(flamePulse);
+                child.material.emissiveIntensity = 2.0 + Math.sin(time * 8 + childIndex) * 0.5;
+            }
+        });
+        
+        // Remove rocket when it goes off screen
+        if (Math.abs(rocket.position.x) > 80) {
+            scene.remove(rocket);
+            spaceXRockets.splice(index, 1);
+            console.log('SpaceX rocket removed (off-screen)');
+        }
+    });
+
     // Enhanced enemy bombing system
     if (Math.random() < 0.012) { // Slightly increased chance
         const randomInv = invaders[Math.floor(Math.random() * invaders.length)];
@@ -2242,6 +2402,28 @@ function createExplosion(x, y, z, type = 'default') {
             lightness: [50, 80]
         };
         intensity = 1.5;
+    } else if (type === 'rocket_hit') {
+        // Small explosion when hitting SpaceX rocket
+        mainParticleCount = 20;
+        sparkCount = 15;
+        shockwaveColor = 0xffffff;
+        particleColors = {
+            hueRange: [200, 240], // Blue to white
+            saturation: 50,
+            lightness: [60, 90]
+        };
+        intensity = 0.8;
+    } else if (type === 'rocket_destroyed') {
+        // Massive explosion when SpaceX rocket is destroyed
+        mainParticleCount = 120;
+        sparkCount = 60;
+        shockwaveColor = 0x00aaff;
+        particleColors = {
+            hueRange: [180, 220], // Blue to cyan
+            saturation: 80,
+            lightness: [40, 80]
+        };
+        intensity = 2.0;
     } else {
         // Default explosion
         mainParticleCount = 40;
@@ -2393,6 +2575,146 @@ function createExplosion(x, y, z, type = 'default') {
 }
 
 let explosions = [];
+
+// SpaceX Rocket creation function
+function createSpaceXRocket() {
+    const rocketGroup = new THREE.Group();
+    
+    // Main rocket body (Falcon 9 style)
+    const bodyGeometry = new THREE.CylinderGeometry(0.6, 0.8, 12, 16);
+    const bodyMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xeeeeee,
+        metalness: 0.8,
+        roughness: 0.2,
+        emissive: 0x222222,
+        emissiveIntensity: 0.3
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.castShadow = true;
+    rocketGroup.add(body);
+    
+    // Nose cone
+    const noseGeometry = new THREE.ConeGeometry(0.6, 2, 16);
+    const noseMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xdddddd,
+        metalness: 0.9,
+        roughness: 0.1,
+        emissive: 0x111111,
+        emissiveIntensity: 0.2
+    });
+    const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+    nose.position.y = 7;
+    nose.castShadow = true;
+    rocketGroup.add(nose);
+    
+    // Engine section
+    const engineGeometry = new THREE.CylinderGeometry(0.8, 1.2, 3, 16);
+    const engineMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x333333,
+        metalness: 1.0,
+        roughness: 0.3,
+        emissive: 0x001122,
+        emissiveIntensity: 0.5
+    });
+    const engine = new THREE.Mesh(engineGeometry, engineMaterial);
+    engine.position.y = -7.5;
+    engine.castShadow = true;
+    rocketGroup.add(engine);
+    
+    // Engine flames
+    for (let i = 0; i < 9; i++) {
+        const flameGeometry = new THREE.ConeGeometry(0.15, 2 + Math.random() * 1, 8);
+        const flameMaterial = new THREE.MeshBasicMaterial({
+            color: new THREE.Color().setHSL(0.1 - i * 0.02, 1, 0.6),
+            transparent: true,
+            opacity: 0.8,
+            emissive: new THREE.Color().setHSL(0.1 - i * 0.02, 1, 0.8),
+            emissiveIntensity: 2.0
+        });
+        const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+        const angle = (i / 9) * Math.PI * 2;
+        flame.position.set(
+            Math.cos(angle) * 0.4,
+            -10 - Math.random() * 1,
+            Math.sin(angle) * 0.4
+        );
+        flame.rotation.x = Math.PI;
+        rocketGroup.add(flame);
+    }
+    
+    // Landing legs
+    for (let i = 0; i < 4; i++) {
+        const legGeometry = new THREE.BoxGeometry(0.1, 2, 0.1);
+        const legMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x666666,
+            metalness: 0.8,
+            roughness: 0.4
+        });
+        const leg = new THREE.Mesh(legGeometry, legMaterial);
+        const angle = (i / 4) * Math.PI * 2;
+        leg.position.set(
+            Math.cos(angle) * 1.0,
+            -5,
+            Math.sin(angle) * 1.0
+        );
+        leg.rotation.z = Math.cos(angle) * 0.3;
+        leg.rotation.x = Math.sin(angle) * 0.3;
+        leg.castShadow = true;
+        rocketGroup.add(leg);
+    }
+    
+    // SpaceX logo area (black band)
+    const logoGeometry = new THREE.CylinderGeometry(0.61, 0.61, 1, 16);
+    const logoMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x000000,
+        metalness: 0.5,
+        roughness: 0.8
+    });
+    const logo = new THREE.Mesh(logoGeometry, logoMaterial);
+    logo.position.y = 2;
+    rocketGroup.add(logo);
+    
+    // Grid fins
+    for (let i = 0; i < 4; i++) {
+        const finGeometry = new THREE.BoxGeometry(1.5, 0.1, 1);
+        const finMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x444444,
+            metalness: 0.9,
+            roughness: 0.2
+        });
+        const fin = new THREE.Mesh(finGeometry, finMaterial);
+        const angle = (i / 4) * Math.PI * 2;
+        fin.position.set(
+            Math.cos(angle) * 1.2,
+            -2,
+            Math.sin(angle) * 1.2
+        );
+        fin.rotation.y = angle;
+        fin.castShadow = true;
+        rocketGroup.add(fin);
+    }
+    
+    // Position rocket randomly
+    const side = Math.random() < 0.5 ? -1 : 1;
+    rocketGroup.position.set(side * 60, Math.random() * 20 - 10, 0);
+    rocketGroup.rotation.z = side * 0.2; // Slight tilt
+    
+    // Movement properties
+    rocketGroup.userData = {
+        type: 'spacex',
+        direction: -side,
+        speed: 0.8 + Math.random() * 0.4,
+        hitCount: 0,
+        maxHits: 10,
+        destroyed: false,
+        baseY: rocketGroup.position.y
+    };
+    
+    scene.add(rocketGroup);
+    spaceXRockets.push(rocketGroup);
+    
+    console.log('SpaceX rocket spawned!');
+}
 
 // Start the game
 init();
