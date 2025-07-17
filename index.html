@@ -191,6 +191,12 @@
                 font-size: 28px;
             }
         }
+        
+        /* Enhanced logo animations */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
     </style>
 </head>
 <body>
@@ -282,7 +288,7 @@ highScoreElement.style.textAlign = 'right';
 highScoreElement.textContent = `High Score: ${highScore}`;
 document.body.appendChild(highScoreElement);
 
-// ZHONG GAMES Logo
+        // ZHONG GAMES Logo - Enhanced with spaceship theme
 const logoElement = document.createElement('div');
 logoElement.id = 'logoElement';
 logoElement.style.position = 'absolute';
@@ -301,9 +307,10 @@ logoElement.style.padding = '5px 10px';
 logoElement.style.border = '2px solid #00ff00';
 logoElement.style.borderRadius = '8px';
 logoElement.style.backgroundColor = 'rgba(0,0,0,0.7)';
+logoElement.style.boxShadow = '0 0 10px rgba(0,255,0,0.3)';
 logoElement.innerHTML = `
     <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-size: 28px;">🚀</span>
+        <span style="font-size: 28px; animation: pulse 2s infinite;">🚀</span>
         <div>
             <div style="font-size: 18px; color: #00ff00;">ZHONG</div>
             <div style="font-size: 14px; color: #008800;">GAMES</div>
