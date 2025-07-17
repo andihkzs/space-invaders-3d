@@ -2203,23 +2203,23 @@ function animate() {
         if (randomInv) {
             const enemyBombGroup = new THREE.Group();
             
-            // Different bomb types based on invader type
+            // Different bomb types based on invader type - all made bigger
             let bombColor, glowColor, emissiveColor, bombSize;
             if (randomInv.userData.type === 'elite') {
                 bombColor = 0x660000;
                 glowColor = 0xff3300;
                 emissiveColor = 0xff3300;
-                bombSize = 0.4;
+                bombSize = 0.8; // Increased from 0.4
             } else if (randomInv.userData.type === 'standard') {
                 bombColor = 0x004466;
                 glowColor = 0x00aaff;
                 emissiveColor = 0x00ffff;
-                bombSize = 0.3;
+                bombSize = 0.7; // Increased from 0.3
             } else {
                 bombColor = 0x004400;
                 glowColor = 0x00ff88;
                 emissiveColor = 0x00ff88;
-                bombSize = 0.25;
+                bombSize = 0.6; // Increased from 0.25
             }
             
             // Main bomb body (spherical with metallic surface)
@@ -2237,14 +2237,14 @@ function animate() {
             bomb.castShadow = true;
             enemyBombGroup.add(bomb);
             
-            // Add bomb fins/stabilizers
-            const finGeometry = new THREE.BoxGeometry(bombSize * 1.5, 0.05, bombSize * 0.8);
+            // Add bomb fins/stabilizers - bigger to match bomb size
+            const finGeometry = new THREE.BoxGeometry(bombSize * 2.0, 0.08, bombSize * 1.2);
             const finMaterial = new THREE.MeshPhysicalMaterial({
                 color: bombColor,
                 metalness: 0.8,
                 roughness: 0.3,
                 emissive: emissiveColor,
-                emissiveIntensity: 0.4
+                emissiveIntensity: 0.6
             });
             
             // Create cross-shaped fins
@@ -2256,47 +2256,47 @@ function animate() {
                 enemyBombGroup.add(fin);
             }
             
-            // Energy core glow
-            const coreGeometry = new THREE.SphereGeometry(bombSize * 0.6, 12, 12);
+            // Energy core glow - bigger and brighter
+            const coreGeometry = new THREE.SphereGeometry(bombSize * 0.7, 16, 16);
             const coreMaterial = new THREE.MeshBasicMaterial({
                 color: glowColor,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.8,
                 emissive: emissiveColor,
-                emissiveIntensity: 1.5
+                emissiveIntensity: 2.0
             });
             const core = new THREE.Mesh(coreGeometry, coreMaterial);
             enemyBombGroup.add(core);
             
-            // Outer energy field
-            const fieldGeometry = new THREE.SphereGeometry(bombSize * 1.8, 16, 16);
+            // Outer energy field - bigger and more visible
+            const fieldGeometry = new THREE.SphereGeometry(bombSize * 2.2, 20, 20);
             const fieldMaterial = new THREE.MeshBasicMaterial({
                 color: glowColor,
                 transparent: true,
-                opacity: 0.2,
+                opacity: 0.3,
                 emissive: emissiveColor,
-                emissiveIntensity: 0.8,
+                emissiveIntensity: 1.2,
                 side: THREE.BackSide
             });
             const field = new THREE.Mesh(fieldGeometry, fieldMaterial);
             enemyBombGroup.add(field);
             
-            // Add energy sparks around the bomb
+            // Add energy sparks around the bomb - bigger and more numerous
             const sparkParticles = [];
-            for (let i = 0; i < 6; i++) {
-                const sparkGeometry = new THREE.SphereGeometry(0.05, 6, 6);
+            for (let i = 0; i < 8; i++) {
+                const sparkGeometry = new THREE.SphereGeometry(0.08, 8, 8);
                 const sparkMaterial = new THREE.MeshBasicMaterial({
                     color: glowColor,
                     transparent: true,
                     opacity: 0.9,
                     emissive: emissiveColor,
-                    emissiveIntensity: 1.2
+                    emissiveIntensity: 1.5
                 });
                 const spark = new THREE.Mesh(sparkGeometry, sparkMaterial);
-                const angle = (i / 6) * Math.PI * 2;
+                const angle = (i / 8) * Math.PI * 2;
                 spark.position.set(
-                    Math.cos(angle) * bombSize * 2,
-                    Math.sin(angle) * bombSize * 2,
+                    Math.cos(angle) * bombSize * 2.5,
+                    Math.sin(angle) * bombSize * 2.5,
                     (Math.random() - 0.5) * bombSize
                 );
                 sparkParticles.push(spark);
@@ -2381,60 +2381,60 @@ function createExplosion(x, y, z, type = 'default') {
     let mainParticleCount, sparkCount, shockwaveColor, particleColors, intensity;
     
     if (type === 'bomb_impact') {
-        // Missile hitting invader - more intense, metallic debris
-        mainParticleCount = 50;
-        sparkCount = 30;
+        // Missile hitting invader - minimized explosion
+        mainParticleCount = 15;
+        sparkCount = 8;
         shockwaveColor = 0xff6600;
         particleColors = {
             hueRange: [15, 45], // Orange to yellow
             saturation: 90,
             lightness: [40, 70]
         };
-        intensity = 1.2;
+        intensity = 0.6;
     } else if (type === 'bomb_ship') {
-        // Bomb hitting player ship - massive explosion
-        mainParticleCount = 80;
-        sparkCount = 40;
+        // Bomb hitting player ship - minimized explosion
+        mainParticleCount = 25;
+        sparkCount = 15;
         shockwaveColor = 0xff2200;
         particleColors = {
             hueRange: [0, 30], // Red to orange
             saturation: 100,
             lightness: [50, 80]
         };
-        intensity = 1.5;
+        intensity = 0.8;
     } else if (type === 'rocket_hit') {
         // Small explosion when hitting SpaceX rocket
-        mainParticleCount = 20;
-        sparkCount = 15;
+        mainParticleCount = 10;
+        sparkCount = 5;
         shockwaveColor = 0xffffff;
         particleColors = {
             hueRange: [200, 240], // Blue to white
             saturation: 50,
             lightness: [60, 90]
         };
-        intensity = 0.8;
+        intensity = 0.4;
     } else if (type === 'rocket_destroyed') {
-        // Massive explosion when SpaceX rocket is destroyed
-        mainParticleCount = 120;
-        sparkCount = 60;
+        // Explosion when SpaceX rocket is destroyed - minimized
+        mainParticleCount = 40;
+        sparkCount = 20;
         shockwaveColor = 0x00aaff;
         particleColors = {
             hueRange: [180, 220], // Blue to cyan
             saturation: 80,
             lightness: [40, 80]
         };
-        intensity = 2.0;
+        intensity = 1.0;
     } else {
-        // Default explosion
-        mainParticleCount = 40;
-        sparkCount = 20;
+        // Default explosion - minimized
+        mainParticleCount = 12;
+        sparkCount = 6;
         shockwaveColor = 0xffff00;
         particleColors = {
             hueRange: [20, 60],
             saturation: 80,
             lightness: [50, 70]
         };
-        intensity = 1.0;
+        intensity = 0.5;
     }
     
     // Main explosion particles (debris and fire)
